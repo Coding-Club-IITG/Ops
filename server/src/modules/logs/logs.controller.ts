@@ -98,7 +98,7 @@ export async function getLogs(req: Request, res: Response) {
 export async function getLogsById(req: Request, res: Response) {
   const id = req.params.id;
   try {
-    const result = await pool.query("SELECT * FROM system_metrics WHERE id = $1", [
+    const result = await pool.query("SELECT * FROM server_logs WHERE id = $1", [
       id,
     ]);
     if (result.rows.length === 0) {
