@@ -10,6 +10,7 @@ import {
   ChevronLeft,
   ChevronRight as ChevronRightIcon,
 } from "lucide-react";
+import { wrap } from "module";
 
 // ─────────────────────────────────────────────
 // Types
@@ -281,7 +282,8 @@ function FieldSidebar({
         style={{ marginBottom: "0.5rem", paddingLeft: "0.25rem" }}>
         Selected Fields
       </p>
-      <div
+      <div 
+      className="flex-wrap z-5"
         style={{
           display: "flex",
           flexDirection: "column",

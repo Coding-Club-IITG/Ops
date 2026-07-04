@@ -19,17 +19,19 @@ export function Navbar() {
         height: 56,
         borderBottom: "1px solid rgba(195,198,214,0.15)",
       }}>
-      <div className="flex items-center h-full px-6 gap-8">
-        {/* ── Brand ───────────────────────────────────── */}
+      <div className="flex flex-col justify-between md:flex-row md:items-center px-4 gap ">
+       
+       <div className="flex flex-col md:flex-row items-start md:items-center gap-8">
+         {/* ── Brand ───────────────────────────────────── */}
         <Link
           href="/"
-          className="shrink-0 font-semibold text-lg"
+          className="shrink-0 mt-[5px] pt-[10px] ml-[10px] font-semibold text-lg items-center "
           style={{ color: "var(--color-primary)", letterSpacing: "-0.01em" }}>
           Campus Analytics
         </Link>
 
         {/* ── Nav links ───────────────────────────────── */}
-        <nav className="flex items-center gap-1">
+        <nav className="flex mt-[-0.875rem] md:mt-[0.875rem] items-center gap-1">
           {navItems.map(({ name, href }) => {
             const active = pathname === href || pathname.startsWith(href + "/");
 
@@ -63,12 +65,13 @@ export function Navbar() {
             );
           })}
         </nav>
+       </div>
 
         {/* ── Spacer ──────────────────────────────────── */}
-        <div className="flex-1" />
+        {/* <div className="flex-1" /> */}
 
         {/* ── Right side ──────────────────────────────── */}
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap gap-4 justify-between z-0 ml-[10px] mt-[10px] items-center">
           {/* Health status */}
           <div className="flex items-center gap-1.5">
             <CheckCircle
@@ -77,7 +80,7 @@ export function Navbar() {
               style={{ color: "var(--color-success)" }}
             />
             <span
-              className="text-sm font-medium"
+              className="text-xs md:text-sm font-medium "
               style={{ color: "var(--color-on-surface)" }}>
               Healthy
             </span>
@@ -100,7 +103,7 @@ export function Navbar() {
               style={{ color: "var(--color-on-surface-variant)" }}
             />
             <span
-              className="text-sm"
+              className="text-xs md:text-sm"
               style={{ color: "var(--color-on-surface-variant)" }}>
               Uptime:{" "}
               <span

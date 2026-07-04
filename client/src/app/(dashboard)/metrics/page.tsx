@@ -52,15 +52,15 @@ export default function MetricsPage() {
     <div className="min-h-screen w-full surface-base px-10 py-8">
       <HeaderCPU data={data} range={range} ranges={ranges} setRange={setRange} />
 
-      <div className="grid w-full grid-cols-12 gap-6">
+      <div className="w-full flex flex-col md:block gap-6">
         
-        <CPUUsage data={data} globalOptions={globalOptions} />
+        <div className='mb-[10px]'><CPUUsage data={data} globalOptions={globalOptions} /></div>
 
-        <DiskIO data={data} />
+        <div className='mb-[10px]'><DiskIO data={data} /></div>
 
-        <Memory data={data} />
+        <div className='mb-[10px]'><Memory data={data} /></div>
 
-        <Network data={data} globalOptions={globalOptions} />
+        <div className='mb-[10px]'><Network data={data} globalOptions={globalOptions} /></div>
 
         <PM2 data={data} handleRestart={handleRestart} handleRestartAll={handleRestartAll} handleStop={handleStop} />
 

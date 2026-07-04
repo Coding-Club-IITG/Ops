@@ -15,7 +15,7 @@ interface PM2Props {
 export function PM2({ data, handleRestart, handleRestartAll, handleStop }: PM2Props) {
     return (
         <div className="col-span-12 rounded-md ghost-border surface-card overflow-hidden">
-            <div className="flex items-center justify-between px-8 py-6 border-b border-surface-container-low">
+            <div className="flex flex-wrap items-center justify-between px-8 py-6 border-b border-surface-container-low">
                 <div className="flex items-center gap-3">
                     <Database size={18} className="text-muted" />
                     <span className="section-title text-sm uppercase tracking-wider">PM2 Process Manager</span>
@@ -28,7 +28,8 @@ export function PM2({ data, handleRestart, handleRestartAll, handleStop }: PM2Pr
                 </button>
             </div>
 
-            <table className="w-full text-left">
+            <div className='overflow-x-auto'>
+                <table className="w-full text-left">
                 <thead>
                     <tr className="table-header-row bg-surface-low/30">
                         <th className="table-header-cell px-8 py-4 text-[10px] uppercase tracking-widest">Process Name</th>
@@ -80,6 +81,7 @@ export function PM2({ data, handleRestart, handleRestartAll, handleStop }: PM2Pr
                     ))}
                 </tbody>
             </table>
+            </div>
             
             <div className="px-8 py-4 bg-surface-low/20 border-t border-surface-container-low flex justify-between items-center text-[9px] font-black uppercase tracking-widest text-muted">
                 <span>{data?.processes.length || 0} Active PM2 Instances</span>

@@ -54,9 +54,10 @@ export function CPUUsage({ data, globalOptions }: CPUUsageProps){
         };
     }, [data?.cpu?.history]);
     return(
-    <div className="col-span-8 rounded-md ghost-border surface-card flex flex-col min-h-[380px]">
-        <div className="p-8 flex-1">
-        <div className="flex justify-between items-start mb-8">
+    <>
+    <div className="overflow-hidden col-span-8 rounded-md ghost-border surface-card flex flex-col flex-wrap min-h-[380px]">
+        <div className="p-8 w-full flex-1">
+        <div className="flex flex-col md:flex-row justify-between items-start mb-8">
             <div className="flex items-center gap-3">
             <div className="rounded-md surface-low p-2.5 text-primary">
                 <Cpu size={20} />
@@ -64,16 +65,16 @@ export function CPUUsage({ data, globalOptions }: CPUUsageProps){
             <span className="section-title text-sm uppercase tracking-wider">CPU Usage</span>
             </div>
             <div className="text-right">
-            <div className="metric text-4xl font-bold">{data?.cpu.currentUsage}%</div>
+            <div className="metric align-center text-4xl font-bold mt-[20px]">{data?.cpu.currentUsage}%</div>
             <div className="label-sm opacity-60">Avg: {data?.cpu.averageUsage}%</div>
             <div className="label-sm opacity-60">Load Average: {data?.cpu.loadAverage}</div>
             </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-12">
+        <div className="flex flex-col md:grid grid-cols-2 gap-12">
             <div>
             <p className="label-sm mb-4">Core Distribution</p>
-            <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+            <div className="md:grid md:grid-cols-2 flex flex-col gap-x-8 gap-y-3">
                 {data?.cpu.cores.map((core: any) => (
                 <div key={core.id}>
                     <div className="flex justify-between text-[10px] font-bold mb-1">
@@ -87,10 +88,10 @@ export function CPUUsage({ data, globalOptions }: CPUUsageProps){
                 ))}
             </div>
             </div>
-            <div className="card-workspace rounded-md p-4">
+            <div className="card-workspace min-w-full rounded-md p-4">
             <p className="label-sm mb-4">Top Processes</p>
             {data?.cpu.topProcesses.map((p: any) => (
-                <div key={p.pid} className="flex justify-between items-center mb-3 group">
+                <div key={p.pid} className="flex flex-wrap justify-between mb-3 group">
                     <div className="flex flex-col">
                         <span className="text-xs font-bold truncate max-w-[120px]">{p.name}</span>
                         <span className="text-[9px] text-muted opacity-40 font-mono">PID: {p.pid}</span>
@@ -110,8 +111,14 @@ export function CPUUsage({ data, globalOptions }: CPUUsageProps){
             </div>
         </div>
         </div>
-        <div className="h-24 w-full border-t border-surface-container-low">
+
+        <div className='w-full overflow-x-auto whitespace-nowrap'>
+        <div className="h-50 min-w-[800px]">
         <Line data={cpuChartData} options={globalOptions} />
         </div>
-    </div>)
+    </div>
+    </div>
+
+   
+    </>)
 }

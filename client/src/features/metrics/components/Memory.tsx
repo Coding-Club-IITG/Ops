@@ -24,7 +24,7 @@ export function Memory({ data}: StorageProps){
         
         <div className="space-y-6">
             <div className="flex items-baseline gap-2 mb-2">
-                <span className="metric text-5xl font-bold">{data?.memory.currentUsed}</span>
+                <span className="metric text-5xl text-[1em] md:text-[2.25em] font-bold">{data?.memory.currentUsed}</span>
                 <span className="section-title text-muted">/ {totalMem} GB</span>
             </div>
         <div className="p-4 rounded-md border border-error/20 bg-error/5">
@@ -41,20 +41,22 @@ export function Memory({ data}: StorageProps){
             <p className="label-sm opacity-60 uppercase mb-4">Usage History</p>
             
             {/* Main Chart Container with Y-Axis */}
-            <div className="flex gap-3 h-32">
+            <div className="flex flex-row gap-3 h-32">
                 <div className="flex flex-col justify-between text-[8px] font-bold text-muted uppercase h-24 py-1">
                     <span>{totalMem}G</span>
                     <span>{Math.round(totalMem / 2)}G</span>
                     <span>0G</span>
                 </div>
 
-                {/* Bar Chart Area */}
+                <div className='overflow-x-auto'>
+                    <div className='h-30 min-w-[800px]'>
+                        {/* Bar Chart Area */}
                 <div className="flex-1 flex flex-col">
                     <div className="h-24 flex items-end gap-1 border-l border-b border-outline-variant/30 px-1">
                         {history.length ? history.map((h: any, i: number) => (
                             <div 
                                 key={i} 
-                                className="flex-1 rounded-t-sm bg-primary opacity-30 hover:opacity-100 transition-opacity" 
+                                className="flex w-4 rounded-t-sm bg-primary opacity-30 hover:opacity-100 transition-opacity" 
                                 style={{ height: `${(h.used / totalMem) * 100}%` }} 
                                 title={`${h.used} GB at ${h.timestamp}`}
                             />
@@ -71,6 +73,8 @@ export function Memory({ data}: StorageProps){
                         <span>{history[Math.floor(history.length / 2)]?.timestamp || ''}</span>
                         <span>{history[history.length - 1]?.timestamp || 'Now'}</span>
                     </div>
+                    </div>
+                </div>
                 </div>
             </div>
 

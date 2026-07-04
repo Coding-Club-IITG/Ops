@@ -14,13 +14,13 @@ interface HeaderProps {
 export function HeaderCPU({ data, range, ranges, setRange }: HeaderProps){
     
     return(
-    <div className="mb-10 flex items-end justify-between border-b border-outline-variant pb-6">
+    <div className="mb-10 flex flex-wrap items-end justify-between ml-[-10px] border-b border-outline-variant pb-6">
     <div>
-        <h1 className="page-title text-3xl font-bold">System Metrics</h1>
+        <h1 className="page-title mt-[4rem] md:mt-[0rem] text-3xl font-bold">System Metrics</h1>
         <p className="body-text text-muted">Performance for range: <span className="text-primary font-bold">{range}</span></p>
     </div>
 
-    <div className="flex flex-col items-end gap-4">
+    <div className="flex flex-wrap flex-col items-end gap-4">
         <div className="flex items-center bg-surface-low/50 rounded-md p-1 border border-outline-variant/30">
         {ranges.map((r) => (
             <button
@@ -35,7 +35,7 @@ export function HeaderCPU({ data, range, ranges, setRange }: HeaderProps){
         ))}
         </div>
 
-        <div className="flex items-center gap-8 label">
+        <div className="flex items-center justify-left gap-8 label">
         <div className="flex items-center gap-2.5 text-[10px] uppercase font-bold tracking-widest">
             <span className="pulse" />
             <span className="text-success">Health: {data?.status}</span>

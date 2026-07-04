@@ -12,7 +12,7 @@ export function DiskIO({ data }: MemoryProps) {
 
     return (
         <div className="col-span-4 rounded-md ghost-border surface-card p-8 flex flex-col">
-            <div className="flex items-center justify-between mb-8 w-full">
+            <div className="flex flex-wrap items-center justify-between mb-8 w-full">
                 <div className="flex items-center gap-3">
                     <div className="rounded-md surface-low p-2.5 text-primary">
                         <Layers size={20} />
@@ -54,10 +54,12 @@ export function DiskIO({ data }: MemoryProps) {
                     </div>
 
                     <div className="flex-1 flex flex-col">
-                        {/* CHART AREA */}
+                        <div className='overflow-x-auto'>
+                            <div className='h-50 min-w-[800px]'>
+                                {/* CHART AREA */}
                         <div className="h-24 flex items-end gap-1 border-l border-b border-outline-variant/30 px-1 relative">
                             {history.length ? history.map((h: any, i: number) => (
-                                <div key={i} className="flex-1 flex items-end h-full gap-[1px]">
+                                <div key={i} className="w-4 shrink-0 flex items-end h-full gap-[1px]">
                                     {/* Read Bar (Green-ish) */}
                                     <div 
                                         className="flex-1 bg-emerald-500/40 rounded-t-[1px]" 
@@ -78,6 +80,8 @@ export function DiskIO({ data }: MemoryProps) {
                         <div className="flex justify-between mt-2 text-[8px] font-bold text-muted uppercase px-1">
                             <span>{history[0]?.timestamp || 'Start'}</span>
                             <span>{history[history.length - 1]?.timestamp || 'Now'}</span>
+                        </div>
+                            </div>
                         </div>
                     </div>
                 </div>

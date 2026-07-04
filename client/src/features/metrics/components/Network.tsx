@@ -61,9 +61,9 @@ export function Network({ data, globalOptions }: NetworkProps){
         }, [data?.network?.history]);
 
     return(
-    <div className="col-span-6 rounded-md ghost-border surface-card flex flex-col overflow-hidden">
+    <div className="col-span-6 rounded-md ghost-border surface-card flex flex-col flex-wr overflow-hidden">
         <div className="p-8 pb-0 flex-1">
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-wrap justify-between items-center mb-8">
             <div className="flex items-center gap-3">
             <div className="rounded-md surface-low p-2.5 text-primary">
                 <Activity size={20} />
@@ -73,7 +73,7 @@ export function Network({ data, globalOptions }: NetworkProps){
             <span className="text-[10px] font-bold uppercase tracking-widest text-muted">Interface: en0</span>
         </div>
         
-        <div className="grid grid-cols-2 gap-8 mb-6">
+        <div className="flex flex-wrap md:grid md:grid-cols-2 gap-8 mb-6">
             <div>
             <p className="label-sm opacity-60">Read (Incoming)</p>
             <p className="text-2xl font-black text-primary">{data?.network.currentRx || '0'} KB/s</p>
@@ -88,8 +88,9 @@ export function Network({ data, globalOptions }: NetworkProps){
             <div className="label-sm opacity-60 text-red-500">Errors: {data?.network.errors}</div>
         </div>
         </div>
-        <div className="h-20 w-full border-t border-surface-container-low">
-        <Line 
+        <div className='overflow-x-auto'>
+            <div className="h-20 min-w-[800px] border-t border-surface-container-low">
+            <Line 
             data={{
             ...networkChartData,
             datasets: [
@@ -99,6 +100,7 @@ export function Network({ data, globalOptions }: NetworkProps){
             }} 
             options={globalOptions} 
         />
+        </div>
         </div>
     </div>)
 }
