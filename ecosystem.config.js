@@ -1,9 +1,9 @@
 module.exports = {
   apps: [
     {
-      name: "dashboard-frontend",
-      cwd: "./client",
-      script: "npm",
+      name: "ops-web",
+      cwd: ".",
+      script: "pnpm",
       args: "start",
       env: {
         NODE_ENV: "production",
@@ -11,13 +11,12 @@ module.exports = {
       },
     },
     {
-      name: "dashboard-backend",
-      cwd: "./server",
-      script: "npm",
-      args: "start",
+      name: "ops-worker",
+      cwd: ".",
+      script: "pnpm",
+      args: "worker",
       env: {
         NODE_ENV: "production",
-        PORT: 3004,
       },
     },
   ],

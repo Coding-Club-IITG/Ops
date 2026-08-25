@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "eventId": "018f5f65-7b7a-7000-8000-000000000001",
+  "timestamp": "2026-08-26T10:15:30.125Z",
+  "project": "ccw",
+  "service": "ccw-web",
+  "environment": "production",
+  "kind": "http",
+  "level": "info",
+  "message": "HTTP request completed",
+  "correlationId": "req_01J65V2JZZ7A4TT01NQ2K8CYF2",
+  "http": {
+    "method": "GET",
+    "route": "/api/projects/[projectId]",
+    "statusCode": 200,
+    "durationMs": 18.4,
+    "requestBytes": 0,
+    "responseBytes": 842
+  },
+  "attributes": {
+    "component": "route-handler",
+    "outcome": "success"
+  }
+}

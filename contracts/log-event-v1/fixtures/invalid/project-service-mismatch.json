@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "eventId": "bad-service-1",
+  "timestamp": "2026-08-26T10:15:30Z",
+  "project": "ccw",
+  "service": "hab-gateway",
+  "environment": "production",
+  "kind": "application",
+  "level": "info",
+  "message": "Gateway started"
+}

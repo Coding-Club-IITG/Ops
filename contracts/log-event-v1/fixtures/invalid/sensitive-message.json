@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "eventId": "bad-message-1",
+  "timestamp": "2026-08-26T10:15:30Z",
+  "project": "ccw",
+  "service": "ccw-worker",
+  "environment": "production",
+  "kind": "application",
+  "level": "error",
+  "message": "Job failed for person@example.com"
+}

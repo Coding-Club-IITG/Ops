@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "eventId": "bad-route-1",
+  "timestamp": "2026-08-26T10:15:30Z",
+  "project": "habit",
+  "service": "hab-api-v1",
+  "environment": "production",
+  "kind": "http",
+  "level": "info",
+  "message": "HTTP request completed",
+  "http": {
+    "method": "GET",
+    "route": "/api/v1/users/12345?include=email",
+    "statusCode": 200,
+    "durationMs": 12
+  }
+}

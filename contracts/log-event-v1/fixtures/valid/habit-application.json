@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "eventId": "018f5f65-7b7a-7000-8000-000000000004",
+  "timestamp": "2026-08-26T10:15:33Z",
+  "project": "habit",
+  "service": "hab-worker-agenda-v1",
+  "environment": "production",
+  "kind": "application",
+  "level": "info",
+  "message": "Agenda job completed",
+  "attributes": {
+    "jobName": "recalculate-streaks",
+    "attempt": 1,
+    "outcome": "success"
+  }
+}

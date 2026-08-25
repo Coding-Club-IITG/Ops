@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "eventId": "bad-kind-1",
+  "timestamp": "2026-08-26T10:15:30Z",
+  "project": "ccw",
+  "service": "ccw-worker",
+  "environment": "production",
+  "kind": "application",
+  "level": "info",
+  "message": "Worker event",
+  "http": {
+    "method": "GET",
+    "route": "/health",
+    "statusCode": 200,
+    "durationMs": 1
+  }
+}

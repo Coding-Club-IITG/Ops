@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "eventId": "018f5f65-7b7a-7000-8000-000000000003",
+  "timestamp": "2026-08-26T10:15:32.900Z",
+  "project": "habit",
+  "service": "hab-api-v2",
+  "environment": "production",
+  "kind": "http",
+  "level": "error",
+  "message": "HTTP request failed",
+  "correlationId": "req_01J65V62S6WAK2M7MAEACZYE03",
+  "http": {
+    "method": "POST",
+    "route": "/api/v2/activities/:activityId",
+    "statusCode": 503,
+    "durationMs": 207.75,
+    "requestBytes": 391,
+    "responseBytes": 52
+  },
+  "error": {
+    "name": "ServiceUnavailableError",
+    "code": "SERVICE_UNAVAILABLE"
+  },
+  "attributes": {
+    "component": "activity-controller",
+    "outcome": "failure"
+  }
+}

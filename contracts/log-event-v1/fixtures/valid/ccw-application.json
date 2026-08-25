@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "eventId": "018f5f65-7b7a-7000-8000-000000000002",
+  "timestamp": "2026-08-26T10:15:31Z",
+  "project": "ccw",
+  "service": "ccw-worker",
+  "environment": "production",
+  "kind": "application",
+  "level": "warn",
+  "message": "Background job scheduled for retry",
+  "correlationId": "job_01J65V4B5CYYZ36SRHG5ZKN5MA",
+  "error": {
+    "name": "UpstreamUnavailableError",
+    "code": "UPSTREAM_UNAVAILABLE"
+  },
+  "attributes": {
+    "jobName": "refresh-project-cache",
+    "queueName": "maintenance",
+    "attempt": 2,
+    "retryable": true,
+    "outcome": "retry"
+  }
+}

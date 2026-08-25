@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "eventId": "bad-error-1",
+  "timestamp": "2026-08-26T10:15:30Z",
+  "project": "habit",
+  "service": "hab-gateway",
+  "environment": "production",
+  "kind": "application",
+  "level": "error",
+  "message": "Gateway request failed",
+  "error": {
+    "name": "Error",
+    "code": "UPSTREAM_FAILURE",
+    "stack": "Error: private implementation detail"
+  }
+}

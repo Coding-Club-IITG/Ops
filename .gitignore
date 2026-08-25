@@ -1,7 +1,25 @@
+# Environment
+.env
+.env*.local
 
-**/node_modules/
-**/.env
-**/.DS_Store
-**/.vscode
-**/.idea
-**/dist/
+# Dependencies
+node_modules/
+
+# Debug
+.log*
+backup
+
+# Next.js
+.next/
+out/
+build/
+coverage/
+
+# Typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# Misc
+.DS_Store
+*.pem
+.direnv/
