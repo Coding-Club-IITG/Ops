@@ -5,6 +5,10 @@
 # Dependencies
 node_modules/
 
+# Build
+dist/
+*.tgz
+
 # Debug
 .log*
 backup

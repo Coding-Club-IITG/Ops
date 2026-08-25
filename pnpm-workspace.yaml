@@ -1,4 +1,5 @@
-packages: []
+packages:
+  - "contracts/log-event-v1"
 
 allowBuilds:
   "@parcel/watcher": true

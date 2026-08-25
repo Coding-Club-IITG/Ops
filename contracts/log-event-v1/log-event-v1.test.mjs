@@ -1,21 +1,21 @@
 import assert from "node:assert/strict";
 import { readdir, readFile } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 import {
   LOG_EVENT_ATTRIBUTE_KEYS,
+  LOG_EVENT_PROJECT_REGISTRY,
   LogEventV1ValidationError,
   isSafeRouteTemplate,
   parseLogEventV1,
   validateLogEventV1,
-} from "./log-event-v1.js";
-import { LOG_EVENT_PROJECT_REGISTRY } from "./project-registry.js";
+} from "./dist/index.js";
 
 const CONTRACT_DIR = dirname(fileURLToPath(import.meta.url));
 
-async function loadFixtures(kind: "valid" | "invalid") {
+async function loadFixtures(kind) {
   const directory = join(CONTRACT_DIR, "fixtures", kind);
   const filenames = (await readdir(directory)).filter((name) =>
     name.endsWith(".json"),
@@ -23,9 +23,7 @@ async function loadFixtures(kind: "valid" | "invalid") {
   return Promise.all(
     filenames.map(async (filename) => ({
       filename,
-      value: JSON.parse(
-        await readFile(join(directory, filename), "utf8"),
-      ) as unknown,
+      value: JSON.parse(await readFile(join(directory, filename), "utf8")),
     })),
   );
 }
@@ -79,16 +77,14 @@ test("validation never strips unknown input fields", () => {
     requestBody: { password: "secret" },
   });
   assert.equal(result.success, false);
-  if (!result.success) {
-    assert.ok(result.issues.some((issue) => issue.path === "requestBody"));
-    assert.ok(result.issues.some((issue) => issue.path === "schemaVersion"));
-  }
+  assert.ok(result.issues.some((issue) => issue.path === "requestBody"));
+  assert.ok(result.issues.some((issue) => issue.path === "schemaVersion"));
 });
 
 test("parse throws structured issues for dead-letter handling", () => {
   assert.throws(
     () => parseLogEventV1(null),
-    (error: unknown) =>
+    (error) =>
       error instanceof LogEventV1ValidationError &&
       error.issues[0]?.path === "",
   );
@@ -107,7 +103,6 @@ test("route validation accepts templates and rejects raw URL data", () => {
 });
 
 test("the V1 attribute allowlist excludes identity and transport fields", () => {
-  const keys: readonly string[] = LOG_EVENT_ATTRIBUTE_KEYS;
   for (const forbidden of [
     "body",
     "headers",
@@ -118,7 +113,7 @@ test("the V1 attribute allowlist excludes identity and transport fields", () => 
     "token",
     "password",
   ]) {
-    assert.equal(keys.includes(forbidden), false);
+    assert.equal(LOG_EVENT_ATTRIBUTE_KEYS.includes(forbidden), false);
   }
 });
 
@@ -137,7 +132,5 @@ test("timestamps are real UTC instants, not merely date-shaped strings", () => {
     message: "Worker started",
   });
   assert.equal(result.success, false);
-  if (!result.success) {
-    assert.ok(result.issues.some((issue) => issue.path === "timestamp"));
-  }
+  assert.ok(result.issues.some((issue) => issue.path === "timestamp"));
 });

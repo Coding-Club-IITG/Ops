@@ -1,6 +1,17 @@
-# LogEventV1
+# `@coding-club-iitg/ops-contract`
 
-This directory is the frozen, application-independent telemetry wire contract.
+This package is the frozen, application-independent telemetry wire contract.
+
+```bash
+npm install @coding-club-iitg/ops-contract
+```
+
+```ts
+import {
+  parseLogEventV1,
+  type LogEventV1,
+} from "@coding-club-iitg/ops-contract";
+```
 
 Projects and their services are registered in `project-registry.ts`.
 Service IDs must be globally unique.

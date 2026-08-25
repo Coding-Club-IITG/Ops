@@ -1,0 +1,48 @@
+{
+  "name": "@coding-club-iitg/ops-contract",
+  "version": "0.1.0",
+  "description": "Telemetry contracts shared by Coding Club IITG services",
+  "type": "module",
+  "sideEffects": false,
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Coding-Club-IITG/Ops.git",
+    "directory": "contracts/log-event-v1"
+  },
+  "homepage": "https://github.com/Coding-Club-IITG/Ops/tree/main/contracts/log-event-v1",
+  "bugs": "https://github.com/Coding-Club-IITG/Ops/issues",
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "dist",
+    "fixtures",
+    "README.md"
+  ],
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./fixtures/*": "./fixtures/*",
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
+    "build": "pnpm run clean && tsc -p tsconfig.build.json && esbuild index.ts --bundle --platform=neutral --format=esm --target=es2022 --outfile=dist/index.js",
+    "test": "pnpm run build && node --test log-event-v1.test.mjs",
+    "check:pack": "pnpm pack --dry-run",
+    "check": "pnpm run test && pnpm run check:pack",
+    "prepack": "pnpm run build"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "typescript": "^6.0.3"
+  }
+}

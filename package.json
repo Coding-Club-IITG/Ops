@@ -3,13 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3005",
+    "worker": "node --env-file-if-exists=.env.local --import tsx src/worker/index.ts",
+    "web": "next dev -p 3005",
+    "contract:check": "pnpm --filter @coding-club-iitg/ops-contract check",
     "build": "next build --webpack",
     "start": "next start -p 3005",
-    "worker": "node --env-file-if-exists=.env.local --import tsx src/worker/index.ts",
-    "operator:add": "node --env-file-if-exists=.env.local --import tsx src/cli/add-operator.ts",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run && node --import tsx --test contracts/log-event-v1/log-event-v1.test.ts",
+    "test": "vitest run && pnpm --filter @coding-club-iitg/ops-contract test",
     "lint": "eslint .",
     "format:check": "prettier --check ."
   },
