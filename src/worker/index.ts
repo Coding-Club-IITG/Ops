@@ -76,13 +76,12 @@ function safeIssues(error: unknown): Array<{ path: string; message: string }> {
   ];
 }
 
-async function acknowledge(streamId: string): Promise<void> {
-  await redis.sendCommand([
-    "XACK",
-    config.LOG_STREAM_KEY,
-    config.LOG_CONSUMER_GROUP,
-    streamId,
-  ]);
+async function finalizeStreamMessage(streamId: string): Promise<void> {
+  await redis
+    .multi()
+    .xAck(config.LOG_STREAM_KEY, config.LOG_CONSUMER_GROUP, streamId)
+    .xDel(config.LOG_STREAM_KEY, streamId)
+    .exec();
 }
 
 async function processMessage(message: StreamMessage): Promise<void> {
@@ -97,7 +96,7 @@ async function processMessage(message: StreamMessage): Promise<void> {
         JSON.stringify({ eventId: event.eventId, timestamp: event.timestamp }),
       );
     }
-    await acknowledge(message.id);
+    await finalizeStreamMessage(message.id);
   } catch (error) {
     const permanent =
       error instanceof SyntaxError ||
@@ -121,7 +120,7 @@ async function processMessage(message: StreamMessage): Promise<void> {
       validationIssues: safeIssues(error),
       deliveryCount: attempts,
     });
-    await acknowledge(message.id);
+    await finalizeStreamMessage(message.id);
   }
 }
 
