@@ -2,7 +2,7 @@ import { getMongoDatabase } from "@/lib/server/mongo";
 
 export async function writeAuditEvent(input: {
   operatorId: string;
-  action: "logs.export" | "operators.upsert";
+  action: "logs.export" | "logs.diagnostics.view" | "operators.upsert";
   attributes: Record<string, string | number | boolean>;
 }): Promise<void> {
   const database = await getMongoDatabase();

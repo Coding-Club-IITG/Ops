@@ -285,6 +285,44 @@
   max-width: 34rem;
   word-break: break-word;
 }
+.diagnosticSummary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.8rem;
+  margin-top: 0.55rem;
+  color: var(--color-on-surface-variant);
+  font-size: 0.76rem;
+}
+.diagnosticSummary .secondaryButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.diagnosticDetails {
+  margin-top: 0.75rem;
+  padding: 0.8rem;
+  border: 1px solid rgba(92, 101, 125, 0.18);
+  border-radius: 0.65rem;
+  background: var(--color-surface-container-low);
+}
+.diagnosticDetails p {
+  margin: 0.45rem 0;
+}
+.trace {
+  margin: 0.55rem 0;
+  padding-left: 1.4rem;
+  overflow-wrap: anywhere;
+}
+.cause {
+  margin: 0.7rem 0 0 0.65rem;
+  padding-left: 0.8rem;
+  border-left: 2px solid rgba(92, 101, 125, 0.24);
+}
+.redactionNotice {
+  color: var(--color-error);
+  font-size: 0.76rem;
+}
 .mono {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.76rem;

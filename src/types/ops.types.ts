@@ -4,7 +4,34 @@ import type {
   LogEventV1,
 } from "@contracts/log-event-v1/log-event-v1";
 
-export type StoredLogEvent = LogEventV1 & { ingestedAt: string };
+export type DiagnosticFrame = {
+  function?: string;
+  file: string;
+  line: number;
+  column: number;
+};
+export type DiagnosticCause = {
+  name?: string;
+  code?: string;
+  message: string;
+  frames: DiagnosticFrame[];
+  cause?: DiagnosticCause;
+};
+export type LogDiagnostic = {
+  message: string;
+  frames: DiagnosticFrame[];
+  cause?: DiagnosticCause;
+  fingerprint: string;
+  redactionCount: number;
+};
+export type StoredLogEvent = LogEventV1 & {
+  ingestedAt: string;
+  diagnostic: {
+    fingerprint: string;
+    redactionCount: number;
+    available: boolean;
+  } | null;
+};
 
 export type LogsQuery = {
   from?: string;

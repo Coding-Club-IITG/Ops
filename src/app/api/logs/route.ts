@@ -9,10 +9,15 @@ import {
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request): Promise<Response> {
-  if (!(await requireOperator(request))) return unauthorizedResponse();
+  const operator = await requireOperator(request);
+  if (!operator) return unauthorizedResponse();
   try {
     const result = await listLogs(parseLogsQuery(request.url));
-    return Response.json({ message: "Logs fetched successfully", ...result });
+    return Response.json({
+      message: "Logs fetched successfully",
+      operatorRole: operator.role,
+      ...result,
+    });
   } catch (error) {
     if (error instanceof ZodError) {
       return Response.json(

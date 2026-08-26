@@ -20,6 +20,10 @@ const runtimeConfigSchema = z.object({
     .default("replace-with-azure-client-secret"),
   AZURE_TENANT_ID: z.string().min(1).default("replace-with-azure-tenant-id"),
   LOG_RETENTION_DAYS: z.coerce.number().int().positive().max(365).default(30),
+  LOG_INGEST_SECRET: z
+    .string()
+    .min(32)
+    .default("local-log-ingest-secret-change-me-now"),
   LOG_STREAM_KEY: z.string().min(1).default("ops:logs:v1"),
   LOG_LIVE_CHANNEL: z.string().min(1).default("ops:logs:live:v1"),
   LOG_CONSUMER_GROUP: z.string().min(1).default("ops-workers-v1"),
@@ -51,6 +55,7 @@ export function getRuntimeConfig(): RuntimeConfig {
         "AZURE_CLIENT_ID",
         "AZURE_CLIENT_SECRET",
         "AZURE_TENANT_ID",
+        "LOG_INGEST_SECRET",
       ].filter((key) => !process.env[key]);
       if (missing.length)
         throw new Error(

@@ -2,8 +2,16 @@ import type { LogEventV1 } from "@contracts/log-event-v1/log-event-v1";
 import { getPostgresPool } from "@/lib/server/postgres";
 import type { LogsQuery } from "@/lib/server/logs/log-query";
 import { LOG_EVENT_SERVICE_DEFINITIONS } from "@contracts/log-event-v1/project-registry";
+import type { LogDiagnostic } from "@/lib/server/logs/log-diagnostics";
 
-export type StoredLogEvent = LogEventV1 & { ingestedAt: string };
+export type StoredLogEvent = LogEventV1 & {
+  ingestedAt: string;
+  diagnostic: {
+    fingerprint: string;
+    redactionCount: number;
+    available: boolean;
+  } | null;
+};
 
 type QueryParts = { conditions: string[]; values: unknown[] };
 
@@ -61,6 +69,11 @@ const SELECT_COLUMNS = `
     'name', error_name,
     'code', error_code
   )) END AS error,
+  CASE WHEN diagnostic_fingerprint IS NULL THEN NULL ELSE jsonb_build_object(
+    'fingerprint', diagnostic_fingerprint,
+    'redactionCount', diagnostic_redaction_count,
+    'available', diagnostic_available
+  ) END AS diagnostic,
   attributes,
   ingested_at AS "ingestedAt"`;
 
@@ -94,42 +107,97 @@ export async function listLogs(
   };
 }
 
-export async function insertLogEvent(event: LogEventV1): Promise<boolean> {
-  const result = await getPostgresPool().query<{ event_id: string }>(
-    `
+export async function insertLogEvent(
+  event: LogEventV1,
+  diagnostic?: LogDiagnostic,
+): Promise<boolean> {
+  const client = await getPostgresPool().connect();
+  try {
+    await client.query("BEGIN");
+    const result = await client.query<{ event_id: string }>(
+      `
     INSERT INTO ops.log_events (
       event_id, schema_version, occurred_at, project, service, environment, kind, level,
       message, correlation_id, http_method, http_route, http_status_code, http_duration_ms,
-      http_request_bytes, http_response_bytes, error_name, error_code, attributes
+      http_request_bytes, http_response_bytes, error_name, error_code, attributes,
+      diagnostic_fingerprint, diagnostic_redaction_count, diagnostic_available
     ) VALUES (
-      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19
+      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22
     )
     ON CONFLICT (event_id) DO NOTHING
     RETURNING event_id
   `,
-    [
-      event.eventId,
-      event.schemaVersion,
-      event.timestamp,
-      event.project,
-      event.service,
-      event.environment,
-      event.kind,
-      event.level,
-      event.message,
-      event.correlationId ?? null,
-      event.http?.method ?? null,
-      event.http?.route ?? null,
-      event.http?.statusCode ?? null,
-      event.http?.durationMs ?? null,
-      event.http?.requestBytes ?? null,
-      event.http?.responseBytes ?? null,
-      event.error?.name ?? null,
-      event.error?.code ?? null,
-      event.attributes ?? {},
-    ],
+      [
+        event.eventId,
+        event.schemaVersion,
+        event.timestamp,
+        event.project,
+        event.service,
+        event.environment,
+        event.kind,
+        event.level,
+        event.message,
+        event.correlationId ?? null,
+        event.http?.method ?? null,
+        event.http?.route ?? null,
+        event.http?.statusCode ?? null,
+        event.http?.durationMs ?? null,
+        event.http?.requestBytes ?? null,
+        event.http?.responseBytes ?? null,
+        event.error?.name ?? null,
+        event.error?.code ?? null,
+        event.attributes ?? {},
+        diagnostic?.fingerprint ?? null,
+        diagnostic?.redactionCount ?? 0,
+        Boolean(diagnostic),
+      ],
+    );
+    if (result.rowCount === 1 && diagnostic) {
+      await client.query(
+        `INSERT INTO ops.log_event_diagnostics
+          (event_id, message, frames, cause, fingerprint, redaction_count)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [
+          event.eventId,
+          diagnostic.message,
+          diagnostic.frames,
+          diagnostic.cause ?? null,
+          diagnostic.fingerprint,
+          diagnostic.redactionCount,
+        ],
+      );
+    }
+    await client.query("COMMIT");
+    return result.rowCount === 1;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function getLogDiagnostic(
+  eventId: string,
+): Promise<(LogDiagnostic & { service: string }) | null> {
+  const result = await getPostgresPool().query<
+    LogDiagnostic & { service: string }
+  >(
+    `SELECT d.message, d.frames, d.cause, d.fingerprint,
+      d.redaction_count AS "redactionCount", e.service
+     FROM ops.log_event_diagnostics d
+     JOIN ops.log_events e ON e.event_id = d.event_id
+     WHERE d.event_id = $1 AND d.expires_at > NOW()`,
+    [eventId],
   );
-  return result.rowCount === 1;
+  return result.rows[0] ?? null;
+}
+
+export async function deleteExpiredDiagnostics(): Promise<number> {
+  const result = await getPostgresPool().query(
+    "DELETE FROM ops.log_event_diagnostics WHERE expires_at <= NOW()",
+  );
+  return result.rowCount ?? 0;
 }
 
 export async function getLogVolume(

@@ -1,9 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Download, RefreshCw } from "lucide-react";
+import { Download, RefreshCw, ShieldCheck } from "lucide-react";
 import { apiFetch } from "@/lib/api";
-import type { LogsQuery, StoredLogEvent } from "@/types/ops.types";
+import type {
+  LogDiagnostic,
+  LogsQuery,
+  StoredLogEvent,
+} from "@/types/ops.types";
 import { LOG_EVENT_PROJECT_REGISTRY } from "@contracts/log-event-v1/project-registry";
 import styles from "@/features/ops/ops.module.scss";
 
@@ -20,6 +24,14 @@ export function LogsView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [live, setLive] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [diagnostic, setDiagnostic] = useState<{
+    eventId: string;
+    data: LogDiagnostic;
+  } | null>(null);
+  const [diagnosticLoading, setDiagnosticLoading] = useState<string | null>(
+    null,
+  );
 
   const refresh = useCallback(async () => {
     try {
@@ -27,9 +39,14 @@ export function LogsView() {
         "/logs",
         {},
         query as Record<string, unknown>,
-      )) as { data: StoredLogEvent[]; total: number };
+      )) as {
+        data: StoredLogEvent[];
+        total: number;
+        operatorRole: "viewer" | "admin";
+      };
       setData(response.data);
       setTotal(response.total);
+      setIsAdmin(response.operatorRole === "admin");
       setError(null);
     } catch (cause) {
       console.error(cause);
@@ -38,6 +55,20 @@ export function LogsView() {
       setLoading(false);
     }
   }, [query]);
+
+  const viewDiagnostic = useCallback(async (eventId: string) => {
+    setDiagnosticLoading(eventId);
+    try {
+      const response = (await apiFetch(
+        `/logs/${encodeURIComponent(eventId)}/diagnostics`,
+      )) as { data: LogDiagnostic };
+      setDiagnostic({ eventId, data: response.data });
+    } catch {
+      setError("Diagnostics are unavailable or have expired");
+    } finally {
+      setDiagnosticLoading(null);
+    }
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -210,7 +241,18 @@ export function LogsView() {
               </thead>
               <tbody>
                 {data.map((log) => (
-                  <LogRow log={log} key={log.eventId} />
+                  <LogRow
+                    log={log}
+                    isAdmin={isAdmin}
+                    diagnostic={
+                      diagnostic?.eventId === log.eventId
+                        ? diagnostic.data
+                        : null
+                    }
+                    loading={diagnosticLoading === log.eventId}
+                    onView={() => void viewDiagnostic(log.eventId)}
+                    key={log.eventId}
+                  />
                 ))}
               </tbody>
             </table>
@@ -263,7 +305,19 @@ export function LogsView() {
   );
 }
 
-function LogRow({ log }: { log: StoredLogEvent }) {
+function LogRow({
+  log,
+  isAdmin,
+  diagnostic,
+  loading,
+  onView,
+}: {
+  log: StoredLogEvent;
+  isAdmin: boolean;
+  diagnostic: LogDiagnostic | null;
+  loading: boolean;
+  onView: () => void;
+}) {
   return (
     <tr>
       <td className={styles.mono}>
@@ -289,6 +343,28 @@ function LogRow({ log }: { log: StoredLogEvent }) {
             {[log.error.name, log.error.code].filter(Boolean).join(" · ")}
           </div>
         )}
+        {log.diagnostic && (
+          <div className={styles.diagnosticSummary}>
+            <span className={styles.mono}>
+              Fingerprint {log.diagnostic.fingerprint.slice(0, 12)}
+            </span>
+            <span>
+              {log.diagnostic.redactionCount} redaction
+              {log.diagnostic.redactionCount === 1 ? "" : "s"}
+            </span>
+            {isAdmin && log.diagnostic.available && (
+              <button
+                className={styles.secondaryButton}
+                disabled={loading}
+                onClick={onView}
+              >
+                <ShieldCheck size={14} />{" "}
+                {loading ? "Loading…" : "View diagnostics"}
+              </button>
+            )}
+          </div>
+        )}
+        {diagnostic && <DiagnosticDetails diagnostic={diagnostic} />}
       </td>
       <td className={styles.mono}>
         {log.http ? (
@@ -304,5 +380,58 @@ function LogRow({ log }: { log: StoredLogEvent }) {
       </td>
       <td className={styles.mono}>{log.correlationId ?? "-"}</td>
     </tr>
+  );
+}
+
+function DiagnosticDetails({ diagnostic }: { diagnostic: LogDiagnostic }) {
+  return (
+    <section
+      className={styles.diagnosticDetails}
+      aria-label="Sanitized error diagnostics"
+    >
+      <strong>Sanitized diagnostics</strong>
+      <p>{diagnostic.message}</p>
+      <FrameList frames={diagnostic.frames} />
+      {diagnostic.cause && <CauseDetails cause={diagnostic.cause} />}
+      <p className={styles.redactionNotice}>
+        Sensitive values are permanently unavailable.{" "}
+        {diagnostic.redactionCount} value
+        {diagnostic.redactionCount === 1 ? " was" : "s were"} redacted before
+        ingestion.
+      </p>
+    </section>
+  );
+}
+
+function FrameList({ frames }: { frames: LogDiagnostic["frames"] }) {
+  if (!frames.length)
+    return <p className={styles.muted}>No recognized Node/V8 frames.</p>;
+  return (
+    <ol className={`${styles.trace} ${styles.mono}`}>
+      {frames.map((frame, index) => (
+        <li key={`${frame.file}:${frame.line}:${frame.column}:${index}`}>
+          {frame.function ? `${frame.function} · ` : ""}
+          {frame.file}:{frame.line}:{frame.column}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function CauseDetails({
+  cause,
+}: {
+  cause: NonNullable<LogDiagnostic["cause"]>;
+}) {
+  return (
+    <div className={styles.cause}>
+      <strong>
+        Caused by {cause.name ?? "Error"}
+        {cause.code ? ` · ${cause.code}` : ""}
+      </strong>
+      <p>{cause.message}</p>
+      <FrameList frames={cause.frames} />
+      {cause.cause && <CauseDetails cause={cause.cause} />}
+    </div>
   );
 }

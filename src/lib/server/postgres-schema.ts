@@ -24,6 +24,9 @@ export async function ensurePostgresSchema(): Promise<void> {
       http_response_bytes BIGINT,
       error_name TEXT,
       error_code TEXT,
+      diagnostic_fingerprint TEXT,
+      diagnostic_redaction_count INTEGER NOT NULL DEFAULT 0,
+      diagnostic_available BOOLEAN NOT NULL DEFAULT FALSE,
       attributes JSONB NOT NULL DEFAULT '{}'::jsonb,
       search_vector TSVECTOR GENERATED ALWAYS AS (
         to_tsvector('simple', coalesce(message, '') || ' ' || coalesce(correlation_id, '') || ' ' || coalesce(http_route, ''))
@@ -40,6 +43,22 @@ export async function ensurePostgresSchema(): Promise<void> {
     CREATE INDEX IF NOT EXISTS log_events_project_service_time_idx ON ops.log_events (project, service, occurred_at DESC);
     CREATE INDEX IF NOT EXISTS log_events_level_time_idx ON ops.log_events (level, occurred_at DESC);
     CREATE INDEX IF NOT EXISTS log_events_search_idx ON ops.log_events USING GIN (search_vector);
+
+    ALTER TABLE ops.log_events ADD COLUMN IF NOT EXISTS diagnostic_fingerprint TEXT;
+    ALTER TABLE ops.log_events ADD COLUMN IF NOT EXISTS diagnostic_redaction_count INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE ops.log_events ADD COLUMN IF NOT EXISTS diagnostic_available BOOLEAN NOT NULL DEFAULT FALSE;
+
+    CREATE TABLE IF NOT EXISTS ops.log_event_diagnostics (
+      event_id TEXT PRIMARY KEY REFERENCES ops.log_events(event_id) ON DELETE CASCADE,
+      message TEXT NOT NULL CHECK (char_length(message) <= 2048),
+      frames JSONB NOT NULL DEFAULT '[]'::jsonb,
+      cause JSONB,
+      fingerprint TEXT NOT NULL CHECK (fingerprint ~ '^[a-f0-9]{64}$'),
+      redaction_count INTEGER NOT NULL CHECK (redaction_count >= 0),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      expires_at TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '7 days'
+    );
+    CREATE INDEX IF NOT EXISTS log_event_diagnostics_expiry_idx ON ops.log_event_diagnostics (expires_at);
 
     CREATE TABLE IF NOT EXISTS ops.log_dead_letters (
       stream_id TEXT PRIMARY KEY,

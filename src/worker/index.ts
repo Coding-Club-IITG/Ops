@@ -8,6 +8,7 @@ import { createRedisConnection } from "@/lib/server/redis";
 import { getRuntimeConfig } from "@/lib/server/env";
 import {
   deleteExpiredLogs,
+  deleteExpiredDiagnostics,
   insertLogEvent,
   storeDeadLetter,
 } from "@/lib/server/logs/log-repository";
@@ -25,6 +26,7 @@ import {
 import { ensurePostgresSchema } from "@/lib/server/postgres-schema";
 import { getPostgresPool } from "@/lib/server/postgres";
 import { getMongoClient } from "@/lib/server/mongo";
+import { ingestionEnvelopeSchema } from "@/lib/server/logs/ingestion-envelope";
 
 const config = getRuntimeConfig();
 const redis = createRedisConnection();
@@ -88,8 +90,15 @@ async function processMessage(message: StreamMessage): Promise<void> {
   let rawPayload = "";
   try {
     rawPayload = extractEventPayload(message);
-    const event = parseLogEventV1(JSON.parse(rawPayload));
-    const inserted = await insertLogEvent(event);
+    const decoded: unknown = JSON.parse(rawPayload);
+    const envelope = ingestionEnvelopeSchema.safeParse(decoded);
+    const event = parseLogEventV1(
+      envelope.success ? envelope.data.event : decoded,
+    );
+    const inserted = await insertLogEvent(
+      event,
+      envelope.success ? envelope.data.diagnostic : undefined,
+    );
     if (inserted) {
       await redis.publish(
         config.LOG_LIVE_CHANNEL,
@@ -181,7 +190,8 @@ async function retentionLoop(): Promise<void> {
   while (!stopping) {
     try {
       const deleted = await deleteExpiredLogs(config.LOG_RETENTION_DAYS);
-      console.info("Log retention completed", { deleted });
+      const diagnosticsDeleted = await deleteExpiredDiagnostics();
+      console.info("Log retention completed", { deleted, diagnosticsDeleted });
     } catch (error) {
       console.error("Log retention failed", error);
     }
