@@ -1,69 +1,243 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Download, RefreshCw, ShieldCheck } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Legend,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { Download, RefreshCw, Settings2, ShieldCheck, X } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { StatusBadge, type StatusTone } from "@/components/StatusBadge";
+import { ChartTooltip } from "@/components/ChartTooltip";
 import type {
   LogDiagnostic,
   LogsQuery,
+  LogView,
+  LogViewColumn,
+  LogVolumeResponse,
   StoredLogEvent,
 } from "@/types/ops.types";
+import {
+  LOG_EVENT_ATTRIBUTE_KEYS,
+  LOG_EVENT_LEVELS,
+} from "@contracts/log-event-v1/log-event-v1";
 import { LOG_EVENT_PROJECT_REGISTRY } from "@contracts/log-event-v1/project-registry";
 import styles from "@/features/ops/ops.module.scss";
 
 const PAGE_SIZE = 50;
-const LOG_LEVEL_TONES: Record<StoredLogEvent["level"], StatusTone> = {
+const RANGES = ["1h", "6h", "24h", "7d", "30d"] as const;
+type RelativeRange = (typeof RANGES)[number];
+const RANGE_MS: Record<RelativeRange, number> = {
+  "1h": 3_600_000,
+  "6h": 21_600_000,
+  "24h": 86_400_000,
+  "7d": 604_800_000,
+  "30d": 2_592_000_000,
+};
+const DEFAULT_COLUMNS: LogViewColumn[] = [
+  "timestamp",
+  "projectService",
+  "level",
+  "message",
+  "method",
+  "route",
+  "statusCode",
+  "durationMs",
+  "correlationId",
+];
+const BASE_COLUMNS: Array<{ id: LogViewColumn; label: string }> = [
+  { id: "timestamp", label: "Time (IST)" },
+  { id: "projectService", label: "Project / service" },
+  { id: "kind", label: "Kind" },
+  { id: "level", label: "Level" },
+  { id: "message", label: "Message" },
+  { id: "method", label: "Method" },
+  { id: "route", label: "Route" },
+  { id: "statusCode", label: "Status" },
+  { id: "durationMs", label: "Duration" },
+  { id: "correlationId", label: "Correlation ID" },
+  { id: "error", label: "Error" },
+];
+const COLUMN_OPTIONS: Array<{ id: LogViewColumn; label: string }> = [
+  ...BASE_COLUMNS,
+  ...LOG_EVENT_ATTRIBUTE_KEYS.map((key) => ({
+    id: `attribute:${key}` as LogViewColumn,
+    label: `Attribute · ${key}`,
+  })),
+];
+const LEVEL_TONES: Record<StoredLogEvent["level"], StatusTone> = {
   debug: "neutral",
   info: "info",
   warn: "warning",
   error: "danger",
   fatal: "danger",
 };
-const IST_DATE_TIME_FORMAT = new Intl.DateTimeFormat("en-IN", {
+const LEVEL_COLORS = {
+  debug: "#8c959f",
+  info: "#2f81f7",
+  warn: "#d29922",
+  error: "#f85149",
+  fatal: "#a40e26",
+};
+const IST_FORMAT = new Intl.DateTimeFormat("en-IN", {
   timeZone: "Asia/Kolkata",
   dateStyle: "medium",
   timeStyle: "medium",
 });
 
-function formatIstTimestamp(timestamp: string): string {
-  return IST_DATE_TIME_FORMAT.format(new Date(timestamp));
+function isRange(value: string | null): value is RelativeRange {
+  return RANGES.includes(value as RelativeRange);
+}
+function formatIst(value: string): string {
+  return IST_FORMAT.format(new Date(value));
+}
+function toIstInput(value?: string): string {
+  if (!value) return "";
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(value));
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}`;
+}
+function fromIstInput(value: string): string | undefined {
+  return value ? new Date(`${value}:00+05:30`).toISOString() : undefined;
+}
+function numberParam(params: URLSearchParams, key: string): number | undefined {
+  const value = params.get(key);
+  if (!value) return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+function queryFromParams(params: URLSearchParams): LogsQuery {
+  return {
+    from: params.get("from") ?? undefined,
+    to: params.get("to") ?? undefined,
+    eventId: params.get("eventId") ?? undefined,
+    project: (params.get("project") as LogsQuery["project"]) || undefined,
+    service: (params.get("service") as LogsQuery["service"]) || undefined,
+    kind: (params.get("kind") as LogsQuery["kind"]) || undefined,
+    level: (params.get("level") as LogsQuery["level"]) || undefined,
+    correlationId: params.get("correlationId") ?? undefined,
+    method: params.get("method") ?? undefined,
+    route: params.get("route") ?? undefined,
+    statusCode: numberParam(params, "statusCode"),
+    statusClass:
+      (params.get("statusClass") as LogsQuery["statusClass"]) || undefined,
+    durationMin: numberParam(params, "durationMin"),
+    durationMax: numberParam(params, "durationMax"),
+    q: params.get("q") ?? undefined,
+    limit: PAGE_SIZE,
+    offset: numberParam(params, "offset") ?? 0,
+    sort: params.get("sort") === "durationMs" ? "durationMs" : "timestamp",
+    order: params.get("order") === "asc" ? "asc" : "desc",
+  };
+}
+function activeQuery(params: URLSearchParams): LogsQuery {
+  const query = queryFromParams(params);
+  const range = params.get("range") ?? "24h";
+  if (!isRange(range)) return query;
+  const to = new Date();
+  return {
+    ...query,
+    from: new Date(to.getTime() - RANGE_MS[range]).toISOString(),
+    to: to.toISOString(),
+  };
+}
+function columnsFromParams(params: URLSearchParams): LogViewColumn[] {
+  const allowed = new Set(COLUMN_OPTIONS.map((column) => column.id));
+  const columns = (params.get("columns")?.split(",") ?? []).filter(
+    (column): column is LogViewColumn => allowed.has(column as LogViewColumn),
+  );
+  return columns.length ? columns : DEFAULT_COLUMNS;
 }
 
 export function LogsView() {
-  const [query, setQuery] = useState<LogsQuery>({
-    limit: PAGE_SIZE,
-    offset: 0,
-    order: "desc",
-  });
-  const [data, setData] = useState<StoredLogEvent[]>([]);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const paramsKey = searchParams.toString();
+  const params = useMemo(() => new URLSearchParams(paramsKey), [paramsKey]);
+  const query = useMemo(() => activeQuery(params), [params]);
+  const visibleColumns = useMemo(() => columnsFromParams(params), [params]);
+  const [searchText, setSearchText] = useState(params.get("q") ?? "");
+  const [events, setEvents] = useState<StoredLogEvent[]>([]);
   const [total, setTotal] = useState(0);
+  const [volume, setVolume] = useState<LogVolumeResponse | null>(null);
+  const [views, setViews] = useState<LogView[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [live, setLive] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [diagnostic, setDiagnostic] = useState<{
-    eventId: string;
-    data: LogDiagnostic;
-  } | null>(null);
-  const [diagnosticLoading, setDiagnosticLoading] = useState<string | null>(
-    null,
+  const [selected, setSelected] = useState<StoredLogEvent | null>(null);
+  const [diagnostic, setDiagnostic] = useState<LogDiagnostic | null>(null);
+  const [diagnosticLoading, setDiagnosticLoading] = useState(false);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const replaceParams = useCallback(
+    (next: URLSearchParams) =>
+      router.replace(`${pathname}?${next.toString()}`, { scroll: false }),
+    [pathname, router],
+  );
+  const updateParams = useCallback(
+    (
+      updates: Record<string, string | number | undefined>,
+      resetPage = true,
+    ) => {
+      const next = new URLSearchParams(paramsKey);
+      Object.entries(updates).forEach(([key, value]) => {
+        if (value === undefined || value === "") next.delete(key);
+        else next.set(key, String(value));
+      });
+      if (resetPage) next.delete("offset");
+      replaceParams(next);
+    },
+    [paramsKey, replaceParams],
+  );
+
+  useEffect(() => {
+    if (!searchParams.has("range") && !searchParams.has("from")) {
+      const next = new URLSearchParams(searchParams.toString());
+      next.set("range", "24h");
+      replaceParams(next);
+    }
+  }, [replaceParams, searchParams]);
+  useEffect(() => setSearchText(params.get("q") ?? ""), [params]);
+  useEffect(
+    () => () => {
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+    },
+    [],
   );
 
   const refresh = useCallback(async () => {
     try {
-      const response = (await apiFetch(
-        "/logs",
-        {},
-        query as Record<string, unknown>,
-      )) as {
-        data: StoredLogEvent[];
-        total: number;
-        operatorRole: "viewer" | "admin";
-      };
-      setData(response.data);
-      setTotal(response.total);
-      setIsAdmin(response.operatorRole === "admin");
+      const apiQuery = query as Record<string, unknown>;
+      const [logs, chart] = await Promise.all([
+        apiFetch("/logs", {}, apiQuery) as Promise<{
+          data: StoredLogEvent[];
+          total: number;
+          operatorRole: "viewer" | "admin";
+        }>,
+        apiFetch("/logs/volume", {}, apiQuery) as Promise<LogVolumeResponse>,
+      ]);
+      setEvents(logs.data);
+      setTotal(logs.total);
+      setIsAdmin(logs.operatorRole === "admin");
+      setVolume(chart);
       setError(null);
     } catch (cause) {
       console.error(cause);
@@ -72,60 +246,157 @@ export function LogsView() {
       setLoading(false);
     }
   }, [query]);
-
-  const viewDiagnostic = useCallback(async (eventId: string) => {
-    setDiagnosticLoading(eventId);
+  const loadViews = useCallback(async () => {
     try {
-      const response = (await apiFetch(
-        `/logs/${encodeURIComponent(eventId)}/diagnostics`,
-      )) as { data: LogDiagnostic };
-      setDiagnostic({ eventId, data: response.data });
+      setViews(((await apiFetch("/log-views")) as { data: LogView[] }).data);
     } catch {
-      setError("Diagnostics are unavailable or have expired");
-    } finally {
-      setDiagnosticLoading(null);
+      setError("Saved log views are temporarily unavailable");
     }
   }, []);
-
   useEffect(() => {
     setLoading(true);
     void refresh();
   }, [refresh]);
-
+  useEffect(() => {
+    void loadViews();
+  }, [loadViews]);
   useEffect(() => {
     const stream = new EventSource("/api/logs/stream");
-    let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     stream.addEventListener("ready", () => setLive(true));
     stream.addEventListener("log", () => {
-      if (refreshTimer) clearTimeout(refreshTimer);
-      refreshTimer = setTimeout(() => void refresh(), 250);
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => void refresh(), 250);
     });
     stream.onerror = () => setLive(false);
     return () => {
-      if (refreshTimer) clearTimeout(refreshTimer);
+      if (timer) clearTimeout(timer);
       stream.close();
     };
   }, [refresh]);
 
-  const setFilter = <K extends keyof LogsQuery>(
-    key: K,
-    value: LogsQuery[K],
-  ) => {
-    setQuery((current) => ({
-      ...current,
-      [key]: value || undefined,
-      offset: 0,
-    }));
+  const updateSearch = (value: string) => {
+    setSearchText(value);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(
+      () => updateParams({ q: value || undefined }),
+      300,
+    );
   };
+  const setRange = (range: string) => {
+    if (range !== "custom")
+      return updateParams({ range, from: undefined, to: undefined });
+    const to = new Date();
+    updateParams({
+      range: "custom",
+      from: new Date(to.getTime() - 86_400_000).toISOString(),
+      to: to.toISOString(),
+    });
+  };
+  const applyView = (id: string) => {
+    const view = views.find((candidate) => candidate.id === id);
+    if (!view) return;
+    const next = new URLSearchParams({
+      range: view.relativeTime,
+      view: view.id,
+      sort: view.sort.field,
+      order: view.sort.order,
+      columns: view.visibleColumns.join(","),
+    });
+    Object.entries(view.filters).forEach(([key, value]) => {
+      if (value !== undefined) next.set(key, String(value));
+    });
+    replaceParams(next);
+  };
+  const currentViewInput = (name: string, description?: string) => ({
+    name,
+    description: description || undefined,
+    relativeTime: params.get("range") as RelativeRange,
+    filters: Object.fromEntries(
+      Object.entries(queryFromParams(params)).filter(
+        ([key, value]) =>
+          value !== undefined &&
+          !["from", "to", "limit", "offset", "sort", "order"].includes(key),
+      ),
+    ),
+    sort: { field: query.sort ?? "timestamp", order: query.order ?? "desc" },
+    visibleColumns,
+  });
+  const createView = async () => {
+    const name = window.prompt("Name this team log view");
+    if (!name) return;
+    try {
+      const response = (await apiFetch("/log-views", {
+        method: "POST",
+        body: JSON.stringify(
+          currentViewInput(
+            name,
+            window.prompt("Optional description") ?? undefined,
+          ),
+        ),
+      })) as { data: LogView };
+      await loadViews();
+      updateParams({ view: response.data.id }, false);
+    } catch {
+      setError(
+        "The saved view could not be created. Its name may already exist.",
+      );
+    }
+  };
+  const updateView = async () => {
+    const view = views.find((candidate) => candidate.id === params.get("view"));
+    if (!view) return;
+    try {
+      await apiFetch(`/log-views/${encodeURIComponent(view.id)}`, {
+        method: "PATCH",
+        body: JSON.stringify(currentViewInput(view.name, view.description)),
+      });
+      await loadViews();
+    } catch {
+      setError("The saved view could not be updated.");
+    }
+  };
+  const deleteView = async () => {
+    const view = views.find((candidate) => candidate.id === params.get("view"));
+    if (!view || !window.confirm(`Delete “${view.name}”?`)) return;
+    try {
+      await apiFetch(`/log-views/${encodeURIComponent(view.id)}`, {
+        method: "DELETE",
+      });
+      updateParams({ view: undefined }, false);
+      await loadViews();
+    } catch {
+      setError("The saved view could not be deleted.");
+    }
+  };
+  const viewDiagnostic = async () => {
+    if (!selected) return;
+    setDiagnosticLoading(true);
+    try {
+      setDiagnostic(
+        (
+          (await apiFetch(
+            `/logs/${encodeURIComponent(selected.eventId)}/diagnostics`,
+          )) as { data: LogDiagnostic }
+        ).data,
+      );
+    } catch {
+      setError("Diagnostics are unavailable or have expired");
+    } finally {
+      setDiagnosticLoading(false);
+    }
+  };
+
+  const range = params.get("range") ?? "24h";
   const page = Math.floor((query.offset ?? 0) / PAGE_SIZE) + 1;
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const exportUrl = useMemo(() => {
-    const params = new URLSearchParams();
+    const exportParams = new URLSearchParams();
     Object.entries(query).forEach(([key, value]) => {
       if (value !== undefined && key !== "limit" && key !== "offset")
-        params.set(key, String(value));
+        exportParams.set(key, String(value));
     });
-    return `/api/logs/export?${params}`;
+    return `/api/logs/export?${exportParams}`;
   }, [query]);
   const serviceOptions = useMemo(
     () =>
@@ -144,11 +415,11 @@ export function LogsView() {
     <main className={styles.page}>
       <div className={styles.headerRow}>
         <div>
-          <p className={styles.eyebrow}>Safe fields · LogEventV1</p>
+          <p className={styles.eyebrow}>LogEventV1</p>
           <h1 className={styles.heading}>Production logs</h1>
           <p className={styles.subheading}>
-            Route templates and allowlisted operational fields only. Request
-            bodies, credentials, identity data, and raw URLs are never captured.
+            Shareable investigations over stored, allow-listed operational
+            fields.
           </p>
         </div>
         <div className={styles.headerActions}>
@@ -156,35 +427,85 @@ export function LogsView() {
             {live ? "Live" : "Reconnecting"}
           </StatusBadge>
           <a className={styles.button} href={exportUrl}>
-            <Download aria-hidden="true" size={15} />
-            Export CSV
+            <Download size={15} /> Export CSV
           </a>
         </div>
       </div>
-
       <section className={`${styles.panel} ${styles.panelWide}`}>
         <div className={styles.panelBody}>
+          <div className={styles.savedViewBar}>
+            <label className={styles.fieldLabel}>
+              Team saved view
+              <select
+                className={styles.select}
+                value={params.get("view") ?? ""}
+                onChange={(event) => applyView(event.target.value)}
+              >
+                <option value="">Current investigation</option>
+                {views.map((view) => (
+                  <option key={view.id} value={view.id}>
+                    {view.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {isAdmin && (
+              <div className={styles.inlineActions}>
+                <button
+                  className={styles.secondaryButton}
+                  disabled={range === "custom"}
+                  onClick={() => void createView()}
+                >
+                  Save as new
+                </button>
+                <button
+                  className={styles.secondaryButton}
+                  disabled={range === "custom" || !params.get("view")}
+                  onClick={() => void updateView()}
+                >
+                  Update view
+                </button>
+                <button
+                  className={styles.secondaryButton}
+                  disabled={!params.get("view")}
+                  onClick={() => void deleteView()}
+                >
+                  Delete
+                </button>
+              </div>
+            )}
+          </div>
           <div className={styles.toolbar}>
             <input
               className={styles.input}
               aria-label="Search logs"
-              placeholder="Search safe message, route, or correlation ID"
-              value={query.q ?? ""}
-              onChange={(event) => setFilter("q", event.target.value)}
+              placeholder="Search message, route, or correlation ID"
+              value={searchText}
+              onChange={(event) => updateSearch(event.target.value)}
             />
+            <select
+              className={styles.select}
+              aria-label="Time range"
+              value={range}
+              onChange={(event) => setRange(event.target.value)}
+            >
+              {RANGES.map((option) => (
+                <option key={option} value={option}>
+                  Last {option}
+                </option>
+              ))}
+              <option value="custom">Custom range</option>
+            </select>
             <select
               className={styles.select}
               aria-label="Project"
               value={query.project ?? ""}
-              onChange={(event) => {
-                const project = event.target.value as LogsQuery["project"];
-                setQuery((current) => ({
-                  ...current,
-                  project: project || undefined,
+              onChange={(event) =>
+                updateParams({
+                  project: event.target.value || undefined,
                   service: undefined,
-                  offset: 0,
-                }));
-              }}
+                })
+              }
             >
               <option value="">All projects</option>
               {LOG_EVENT_PROJECT_REGISTRY.map((project) => (
@@ -198,7 +519,7 @@ export function LogsView() {
               aria-label="Service"
               value={query.service ?? ""}
               onChange={(event) =>
-                setFilter("service", event.target.value as LogsQuery["service"])
+                updateParams({ service: event.target.value || undefined })
               }
             >
               <option value="">All services</option>
@@ -210,67 +531,212 @@ export function LogsView() {
             </select>
             <select
               className={styles.select}
-              aria-label="Kind"
-              value={query.kind ?? ""}
-              onChange={(event) =>
-                setFilter("kind", event.target.value as LogsQuery["kind"])
-              }
-            >
-              <option value="">All kinds</option>
-              <option value="application">Application</option>
-              <option value="http">HTTP</option>
-            </select>
-            <select
-              className={styles.select}
               aria-label="Level"
               value={query.level ?? ""}
               onChange={(event) =>
-                setFilter("level", event.target.value as LogsQuery["level"])
+                updateParams({ level: event.target.value || undefined })
               }
             >
               <option value="">All levels</option>
-              {["debug", "info", "warn", "error", "fatal"].map((level) => (
+              {LOG_EVENT_LEVELS.map((level) => (
                 <option value={level} key={level}>
                   {level}
                 </option>
               ))}
             </select>
           </div>
+          {range === "custom" && (
+            <div className={styles.customRange}>
+              <label className={styles.fieldLabel}>
+                From (IST)
+                <input
+                  className={styles.input}
+                  type="datetime-local"
+                  value={toIstInput(query.from)}
+                  onChange={(event) =>
+                    updateParams({ from: fromIstInput(event.target.value) })
+                  }
+                />
+              </label>
+              <label className={styles.fieldLabel}>
+                To (IST)
+                <input
+                  className={styles.input}
+                  type="datetime-local"
+                  value={toIstInput(query.to)}
+                  onChange={(event) =>
+                    updateParams({ to: fromIstInput(event.target.value) })
+                  }
+                />
+              </label>
+            </div>
+          )}
+          <details className={styles.advancedFilters}>
+            <summary>
+              <Settings2 size={15} /> Advanced filters and columns
+            </summary>
+            <div className={styles.advancedGrid}>
+              <FilterInput
+                label="Event ID"
+                value={query.eventId}
+                onChange={(value) => updateParams({ eventId: value })}
+              />
+              <FilterInput
+                label="Correlation ID"
+                value={query.correlationId}
+                onChange={(value) => updateParams({ correlationId: value })}
+              />
+              <FilterInput
+                label="Route template"
+                value={query.route}
+                onChange={(value) => updateParams({ route: value })}
+              />
+              <FilterInput
+                label="HTTP method"
+                value={query.method}
+                onChange={(value) =>
+                  updateParams({ method: value?.toUpperCase() })
+                }
+              />
+              <label className={styles.fieldLabel}>
+                Kind
+                <select
+                  className={styles.select}
+                  value={query.kind ?? ""}
+                  onChange={(event) =>
+                    updateParams({ kind: event.target.value || undefined })
+                  }
+                >
+                  <option value="">All kinds</option>
+                  <option value="application">Application</option>
+                  <option value="http">HTTP</option>
+                </select>
+              </label>
+              <label className={styles.fieldLabel}>
+                Status class
+                <select
+                  className={styles.select}
+                  value={query.statusClass ?? ""}
+                  onChange={(event) =>
+                    updateParams({
+                      statusClass: event.target.value || undefined,
+                    })
+                  }
+                >
+                  <option value="">Any class</option>
+                  {["1xx", "2xx", "3xx", "4xx", "5xx"].map((value) => (
+                    <option key={value}>{value}</option>
+                  ))}
+                </select>
+              </label>
+              <FilterInput
+                label="Exact status"
+                type="number"
+                value={query.statusCode}
+                onChange={(value) => updateParams({ statusCode: value })}
+              />
+              <FilterInput
+                label="Minimum duration (ms)"
+                type="number"
+                value={query.durationMin}
+                onChange={(value) => updateParams({ durationMin: value })}
+              />
+              <FilterInput
+                label="Maximum duration (ms)"
+                type="number"
+                value={query.durationMax}
+                onChange={(value) => updateParams({ durationMax: value })}
+              />
+              <label className={styles.fieldLabel}>
+                Sort field
+                <select
+                  className={styles.select}
+                  value={query.sort}
+                  onChange={(event) =>
+                    updateParams({ sort: event.target.value })
+                  }
+                >
+                  <option value="timestamp">Timestamp</option>
+                  <option value="durationMs">Duration</option>
+                </select>
+              </label>
+              <label className={styles.fieldLabel}>
+                Sort order
+                <select
+                  className={styles.select}
+                  value={query.order}
+                  onChange={(event) =>
+                    updateParams({ order: event.target.value })
+                  }
+                >
+                  <option value="desc">Descending</option>
+                  <option value="asc">Ascending</option>
+                </select>
+              </label>
+            </div>
+            <fieldset className={styles.columnPicker}>
+              <legend>Visible columns</legend>
+              {COLUMN_OPTIONS.map((column) => (
+                <label key={column.id}>
+                  <input
+                    type="checkbox"
+                    checked={visibleColumns.includes(column.id)}
+                    onChange={(event) => {
+                      const next = event.target.checked
+                        ? [...visibleColumns, column.id]
+                        : visibleColumns.filter((id) => id !== column.id);
+                      if (next.length)
+                        updateParams({ columns: next.join(",") }, false);
+                    }}
+                  />{" "}
+                  {column.label}
+                </label>
+              ))}
+            </fieldset>
+          </details>
           {error && (
             <p className={styles.error} role="alert">
               {error}
             </p>
           )}
+          <VolumeChart volume={volume} />
           <div className={styles.tableWrap}>
             <table className={styles.table}>
               <thead>
                 <tr>
-                  <th>Time (IST)</th>
-                  <th>Service</th>
-                  <th>Level</th>
-                  <th>Message</th>
-                  <th>HTTP</th>
-                  <th>Correlation</th>
+                  {visibleColumns.map((column) => (
+                    <th key={column}>
+                      {
+                        COLUMN_OPTIONS.find((option) => option.id === column)
+                          ?.label
+                      }
+                    </th>
+                  ))}
+                  <th>Details</th>
                 </tr>
               </thead>
               <tbody>
-                {data.map((log) => (
-                  <LogRow
-                    log={log}
-                    isAdmin={isAdmin}
-                    diagnostic={
-                      diagnostic?.eventId === log.eventId
-                        ? diagnostic.data
-                        : null
-                    }
-                    loading={diagnosticLoading === log.eventId}
-                    onView={() => void viewDiagnostic(log.eventId)}
-                    key={log.eventId}
-                  />
+                {events.map((log) => (
+                  <tr key={log.eventId}>
+                    {visibleColumns.map((column) => (
+                      <td key={column}>{renderCell(log, column)}</td>
+                    ))}
+                    <td>
+                      <button
+                        className={styles.secondaryButton}
+                        onClick={() => {
+                          setSelected(log);
+                          setDiagnostic(null);
+                        }}
+                      >
+                        View event
+                      </button>
+                    </td>
+                  </tr>
                 ))}
               </tbody>
             </table>
-            {!loading && data.length === 0 && (
+            {!loading && events.length === 0 && (
               <div className={styles.empty}>No events match these filters.</div>
             )}
             {loading && (
@@ -285,10 +751,10 @@ export function LogsView() {
               className={styles.secondaryButton}
               disabled={page <= 1}
               onClick={() =>
-                setQuery((current) => ({
-                  ...current,
-                  offset: Math.max(0, (current.offset ?? 0) - PAGE_SIZE),
-                }))
+                updateParams(
+                  { offset: Math.max(0, (query.offset ?? 0) - PAGE_SIZE) },
+                  false,
+                )
               }
             >
               Previous
@@ -297,10 +763,7 @@ export function LogsView() {
               className={styles.secondaryButton}
               disabled={page >= pages}
               onClick={() =>
-                setQuery((current) => ({
-                  ...current,
-                  offset: (current.offset ?? 0) + PAGE_SIZE,
-                }))
+                updateParams({ offset: (query.offset ?? 0) + PAGE_SIZE }, false)
               }
             >
               Next
@@ -315,92 +778,296 @@ export function LogsView() {
           </div>
         </div>
       </section>
+      {selected && (
+        <EventDrawer
+          event={selected}
+          diagnostic={diagnostic}
+          diagnosticLoading={diagnosticLoading}
+          isAdmin={isAdmin}
+          onDiagnostic={() => void viewDiagnostic()}
+          onClose={() => {
+            setSelected(null);
+            setDiagnostic(null);
+          }}
+        />
+      )}
     </main>
   );
 }
 
-function LogRow({
-  log,
-  isAdmin,
-  diagnostic,
-  loading,
-  onView,
+function FilterInput({
+  label,
+  value,
+  type = "text",
+  onChange,
 }: {
-  log: StoredLogEvent;
-  isAdmin: boolean;
-  diagnostic: LogDiagnostic | null;
-  loading: boolean;
-  onView: () => void;
+  label: string;
+  value?: string | number;
+  type?: string;
+  onChange: (value: string | undefined) => void;
 }) {
   return (
-    <tr>
-      <td className={styles.mono}>
-        <time dateTime={log.timestamp} title={log.timestamp}>
-          {formatIstTimestamp(log.timestamp)}
-        </time>
-      </td>
-      <td>
-        <strong>{log.service}</strong>
-        <div className={styles.muted}>
-          {log.project} · {log.kind}
-        </div>
-      </td>
-      <td>
-        <StatusBadge tone={LOG_LEVEL_TONES[log.level]}>{log.level}</StatusBadge>
-      </td>
-      <td className={styles.message}>
-        {log.message}
-        {log.error && (
-          <div className={`${styles.muted} ${styles.mono}`}>
-            {[log.error.name, log.error.code].filter(Boolean).join(" · ")}
-          </div>
-        )}
-        {log.diagnostic && (
-          <div className={styles.diagnosticSummary}>
-            <span className={styles.mono}>
-              Fingerprint {log.diagnostic.fingerprint.slice(0, 12)}
-            </span>
-            <span>
-              {log.diagnostic.redactionCount} redaction
-              {log.diagnostic.redactionCount === 1 ? "" : "s"}
-            </span>
-            {isAdmin && log.diagnostic.available && (
-              <button
-                className={styles.secondaryButton}
-                disabled={loading}
-                onClick={onView}
-              >
-                <ShieldCheck size={14} />{" "}
-                {loading ? "Loading…" : "View diagnostics"}
-              </button>
-            )}
-          </div>
-        )}
-        {diagnostic && <DiagnosticDetails diagnostic={diagnostic} />}
-      </td>
-      <td className={styles.mono}>
-        {log.http ? (
-          <>
-            {log.http.method} {log.http.route}
-            <div className={styles.muted}>
-              {log.http.statusCode} · {log.http.durationMs.toFixed(1)} ms
-            </div>
-          </>
-        ) : (
-          "-"
-        )}
-      </td>
-      <td className={styles.mono}>{log.correlationId ?? "-"}</td>
-    </tr>
+    <label className={styles.fieldLabel}>
+      {label}
+      <input
+        className={styles.input}
+        type={type}
+        min={type === "number" ? 0 : undefined}
+        value={value ?? ""}
+        onChange={(event) => onChange(event.target.value || undefined)}
+      />
+    </label>
   );
 }
-
+function renderCell(log: StoredLogEvent, column: LogViewColumn) {
+  if (column.startsWith("attribute:")) {
+    const key = column.slice(10) as keyof NonNullable<
+      StoredLogEvent["attributes"]
+    >;
+    return (
+      <span className={styles.mono}>
+        {String(log.attributes?.[key] ?? "-")}
+      </span>
+    );
+  }
+  switch (column) {
+    case "timestamp":
+      return (
+        <time
+          className={styles.mono}
+          dateTime={log.timestamp}
+          title={log.timestamp}
+        >
+          {formatIst(log.timestamp)}
+        </time>
+      );
+    case "projectService":
+      return (
+        <>
+          <strong>{log.service}</strong>
+          <div className={styles.muted}>{log.project}</div>
+        </>
+      );
+    case "kind":
+      return log.kind;
+    case "level":
+      return (
+        <StatusBadge tone={LEVEL_TONES[log.level]}>{log.level}</StatusBadge>
+      );
+    case "message":
+      return <span className={styles.message}>{log.message}</span>;
+    case "method":
+      return <span className={styles.mono}>{log.http?.method ?? "-"}</span>;
+    case "route":
+      return <span className={styles.mono}>{log.http?.route ?? "-"}</span>;
+    case "statusCode":
+      return <span className={styles.mono}>{log.http?.statusCode ?? "-"}</span>;
+    case "durationMs":
+      return (
+        <span className={styles.mono}>
+          {log.http ? `${log.http.durationMs.toFixed(1)} ms` : "-"}
+        </span>
+      );
+    case "correlationId":
+      return <span className={styles.mono}>{log.correlationId ?? "-"}</span>;
+    case "error":
+      return (
+        <span className={styles.mono}>
+          {log.error
+            ? [log.error.name, log.error.code].filter(Boolean).join(" · ")
+            : "-"}
+        </span>
+      );
+  }
+}
+function VolumeChart({ volume }: { volume: LogVolumeResponse | null }) {
+  const summary = volume
+    ? `${volume.buckets.reduce((sum, bucket) => sum + bucket.total, 0)} events across ${volume.buckets.length} buckets.`
+    : "Log volume is loading.";
+  return (
+    <section className={styles.volumePanel} aria-label="Filtered log volume">
+      <div className={styles.panelHeader}>
+        <h2>Filtered log volume</h2>
+        <span className={styles.muted}>{summary}</span>
+      </div>
+      <div className={styles.chart}>
+        {volume?.buckets.length ? (
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={volume.buckets}
+              margin={{ top: 12, right: 12, bottom: 8, left: 0 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis
+                dataKey="timestamp"
+                minTickGap={28}
+                tickFormatter={(value) => formatIst(String(value))}
+              />
+              <YAxis allowDecimals={false} width={42} />
+              <Tooltip
+                cursor={{ fill: "var(--primary-alpha)" }}
+                content={(props) => (
+                  <ChartTooltip
+                    {...props}
+                    formatLabel={(value) => formatIst(String(value))}
+                    formatValue={(value) =>
+                      `${Number(value).toLocaleString("en-IN")} events`
+                    }
+                  />
+                )}
+              />
+              <Legend />
+              {LOG_EVENT_LEVELS.map((level) => (
+                <Bar
+                  key={level}
+                  dataKey={level}
+                  stackId="logs"
+                  fill={LEVEL_COLORS[level]}
+                  isAnimationActive={false}
+                />
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className={styles.empty}>No log volume to display.</div>
+        )}
+      </div>
+      <p className={styles.srOnly}>{summary} Times are shown in IST.</p>
+    </section>
+  );
+}
+function EventDrawer({
+  event,
+  diagnostic,
+  diagnosticLoading,
+  isAdmin,
+  onDiagnostic,
+  onClose,
+}: {
+  event: StoredLogEvent;
+  diagnostic: LogDiagnostic | null;
+  diagnosticLoading: boolean;
+  isAdmin: boolean;
+  onDiagnostic: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className={styles.drawerBackdrop}
+      onMouseDown={(mouseEvent) => {
+        if (mouseEvent.target === mouseEvent.currentTarget) onClose();
+      }}
+    >
+      <aside
+        className={styles.drawer}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="event-title"
+      >
+        <div className={styles.drawerHeader}>
+          <div>
+            <p className={styles.eyebrow}>Stored LogEventV1 fields</p>
+            <h2 id="event-title">Event detail</h2>
+          </div>
+          <button
+            className={styles.secondaryButton}
+            aria-label="Close event detail"
+            onClick={onClose}
+          >
+            <X size={16} />
+          </button>
+        </div>
+        <dl className={styles.detailList}>
+          <Detail label="Event ID" value={event.eventId} mono />
+          <Detail label="Schema version" value={event.schemaVersion} />
+          <Detail label="Timestamp (IST)" value={formatIst(event.timestamp)} />
+          <Detail label="Project" value={event.project} />
+          <Detail label="Service" value={event.service} />
+          <Detail label="Environment" value={event.environment} />
+          <Detail label="Kind" value={event.kind} />
+          <Detail label="Level" value={event.level} />
+          <Detail label="Message" value={event.message} />
+          {event.correlationId && (
+            <Detail label="Correlation ID" value={event.correlationId} mono />
+          )}
+          {event.http && (
+            <>
+              <Detail label="HTTP method" value={event.http.method} />
+              <Detail label="Route template" value={event.http.route} mono />
+              <Detail label="Status code" value={event.http.statusCode} />
+              <Detail label="Duration" value={`${event.http.durationMs} ms`} />
+              <Detail
+                label="Request bytes"
+                value={event.http.requestBytes ?? "Not stored"}
+              />
+              <Detail
+                label="Response bytes"
+                value={event.http.responseBytes ?? "Not stored"}
+              />
+            </>
+          )}
+          {event.error?.name && (
+            <Detail label="Error name" value={event.error.name} />
+          )}
+          {event.error?.code && (
+            <Detail label="Error code" value={event.error.code} />
+          )}
+          <Detail
+            label="Attributes"
+            value={
+              Object.keys(event.attributes ?? {}).length
+                ? JSON.stringify(event.attributes, null, 2)
+                : "None stored"
+            }
+            mono
+          />
+        </dl>
+        {event.diagnostic && (
+          <section className={styles.diagnosticDetails}>
+            <strong>Sanitized diagnostic metadata</strong>
+            <p className={styles.mono}>
+              Fingerprint {event.diagnostic.fingerprint}
+            </p>
+            <p>
+              {event.diagnostic.redactionCount} redaction
+              {event.diagnostic.redactionCount === 1 ? "" : "s"}
+            </p>
+            {isAdmin && event.diagnostic.available && !diagnostic && (
+              <button
+                className={styles.secondaryButton}
+                disabled={diagnosticLoading}
+                onClick={onDiagnostic}
+              >
+                <ShieldCheck size={14} />{" "}
+                {diagnosticLoading ? "Loading…" : "View sanitized diagnostics"}
+              </button>
+            )}
+            {diagnostic && <DiagnosticDetails diagnostic={diagnostic} />}
+          </section>
+        )}
+      </aside>
+    </div>
+  );
+}
+function Detail({
+  label,
+  value,
+  mono,
+}: {
+  label: string;
+  value: string | number;
+  mono?: boolean;
+}) {
+  return (
+    <div>
+      <dt>{label}</dt>
+      <dd className={mono ? styles.mono : undefined}>{value}</dd>
+    </div>
+  );
+}
 function DiagnosticDetails({ diagnostic }: { diagnostic: LogDiagnostic }) {
   return (
-    <section
-      className={styles.diagnosticDetails}
-      aria-label="Sanitized error diagnostics"
-    >
+    <section aria-label="Sanitized error diagnostics">
       <strong>Sanitized diagnostics</strong>
       <p>{diagnostic.message}</p>
       <FrameList frames={diagnostic.frames} />
@@ -414,11 +1081,8 @@ function DiagnosticDetails({ diagnostic }: { diagnostic: LogDiagnostic }) {
     </section>
   );
 }
-
 function FrameList({ frames }: { frames: LogDiagnostic["frames"] }) {
-  if (!frames.length)
-    return <p className={styles.muted}>No recognized Node/V8 frames.</p>;
-  return (
+  return frames.length ? (
     <ol className={`${styles.trace} ${styles.mono}`}>
       {frames.map((frame, index) => (
         <li key={`${frame.file}:${frame.line}:${frame.column}:${index}`}>
@@ -427,9 +1091,10 @@ function FrameList({ frames }: { frames: LogDiagnostic["frames"] }) {
         </li>
       ))}
     </ol>
+  ) : (
+    <p className={styles.muted}>No recognized Node/V8 frames.</p>
   );
 }
-
 function CauseDetails({
   cause,
 }: {

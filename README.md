@@ -16,6 +16,7 @@ nix-shell
 pnpm install
 cp .env.example .env.local
 docker compose -f docker-compose.dev.yml up -d
+pnpm seed
 pnpm dev
 ```
 

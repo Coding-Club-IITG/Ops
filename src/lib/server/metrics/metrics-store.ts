@@ -39,11 +39,32 @@ export async function ensureMongoCollections(): Promise<void> {
     await database.createCollection("operator_snapshots");
   if (!names.has("audit_events"))
     await database.createCollection("audit_events");
+  if (!names.has("operator_grants"))
+    await database.createCollection("operator_grants");
+  if (!names.has("log_views")) await database.createCollection("log_views");
+  if (!names.has("seed_activity"))
+    await database.createCollection("seed_activity");
 
   await database
     .collection("operator_snapshots")
     .createIndex({ operatorId: 1, capturedAt: -1 });
   await database.collection("audit_events").createIndex({ occurredAt: -1 });
+  await database
+    .collection("operator_grants")
+    .createIndex(
+      { email: 1 },
+      { unique: true, name: "operator_grants_email_unique" },
+    );
+  await database
+    .collection("log_views")
+    .createIndex({ id: 1 }, { unique: true, name: "log_views_id_unique" });
+  await database
+    .collection("log_views")
+    .createIndex(
+      { normalizedName: 1 },
+      { unique: true, name: "log_views_name_unique" },
+    );
+  await database.collection("seed_activity").createIndex({ occurredAt: -1 });
 }
 
 export async function addMetricSnapshot(

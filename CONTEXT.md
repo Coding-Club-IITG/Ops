@@ -13,14 +13,15 @@ inspect sanitized error diagnostics, export log results, and monitor host and PM
 
 - **Overview:** Production service state, recent error volume, event totals, and
   ingestion health.
-- **Log explorer:** Full-text search, project/service/kind/level filters,
-  pagination, live updates over server-sent events, and CSV export.
+- **Log explorer:** URL-restorable advanced filtering, adaptive stacked volume
+  history, configurable safe-field columns, team saved views, pagination, live
+  updates over server-sent events, event detail, and CSV export.
 - **Safe diagnostics:** Sanitized stack and cause details for administrators,
   with fingerprint and redaction metadata visible in the log explorer.
-- **Metrics:** Host CPU, memory, disk, and network telemetry together with
-  allow-listed PM2 process status and history.
-- **Access management:** Administrator-managed viewer and admin grants layered
-  on top of current Coding Club tenure and role eligibility.
+- **Metrics:** Historical host CPU, memory, disk, and network telemetry together
+  with allow-listed PM2 process state and admin-only partition, interface, and
+  safe OS-process summaries.
+- **Access management:** Administrator-managed viewer and admin grants.
 - **Operational health:** Public liveness and readiness endpoints for deployment
   infrastructure.
 
@@ -83,10 +84,9 @@ Authentication uses Better Auth with Microsoft accounts. Every dashboard page,
 data API, export, diagnostic endpoint, and SSE stream requires an eligible
 operator. Liveness and readiness are the only public operational endpoints.
 
-Eligibility is the union of:
-
-- an enabled Ops grant in MongoDB; or
-- a current-tenure Coding Club Head or Admin identity supplied by Better Auth.
+Eligibility requires an enabled, explicit Ops grant in MongoDB. Provision the
+initial administrator with `OPS_SEED_ADMIN_EMAIL=... pnpm seed`; the command is
+idempotent and also seeds the default team log views.
 
 Resolved operators receive either a `viewer` or `admin` Ops role. Administrators
 can manage grants and view available sanitized diagnostics. Authorization must

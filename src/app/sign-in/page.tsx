@@ -11,9 +11,7 @@ export default function SignInPage() {
 
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("error")) {
-      setError(
-        "Your Microsoft account is not enabled for Ops. Ask an Ops admin to add it.",
-      );
+      setError("Your account is not enabled for Ops access.");
     }
   }, []);
 
@@ -49,8 +47,7 @@ export default function SignInPage() {
         </div>
         <h1 className={styles.heading}>Sign in to Ops</h1>
         <p className={styles.subheading}>
-          Use your Microsoft account. Access is restricted to accounts granted
-          an Ops viewer or admin role.
+          Access is restricted to developers and infra maintainers.
         </p>
         <div className={styles.signInFields}>
           {error && (
@@ -69,7 +66,7 @@ export default function SignInPage() {
               <i />
               <i />
             </span>
-            {loading ? "Redirecting…" : "Continue with Microsoft"}
+            {loading ? "Redirecting…" : "Continue with SSO"}
           </button>
         </div>
       </section>

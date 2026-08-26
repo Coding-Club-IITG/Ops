@@ -11,7 +11,9 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   const session = await auth.api.getSession({ headers: await headers() });
-  const operator = session ? await resolveOperator(session.user) : null;
+  if (!session) redirect("/sign-in");
+
+  const operator = await resolveOperator(session.user);
   if (!operator) redirect("/sign-in?error=access-denied");
 
   return (

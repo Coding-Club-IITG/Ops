@@ -23,26 +23,33 @@ export function serializeDiagnosticJson(diagnostic: LogDiagnostic): {
   };
 }
 
-type QueryParts = { conditions: string[]; values: unknown[] };
+export type LogQueryParts = { conditions: string[]; values: unknown[] };
 
-function addCondition(parts: QueryParts, sql: string, value: unknown): void {
+function addCondition(parts: LogQueryParts, sql: string, value: unknown): void {
   parts.values.push(value);
   parts.conditions.push(`${sql} $${parts.values.length}`);
 }
 
-function buildWhere(query: LogsQuery): QueryParts {
-  const parts: QueryParts = { conditions: [], values: [] };
+export function buildLogWhere(query: LogsQuery): LogQueryParts {
+  const parts: LogQueryParts = { conditions: [], values: [] };
   if (query.from) addCondition(parts, "occurred_at >=", query.from);
   if (query.to) addCondition(parts, "occurred_at <=", query.to);
+  if (query.eventId) addCondition(parts, "event_id =", query.eventId);
   if (query.project) addCondition(parts, "project =", query.project);
   if (query.service) addCondition(parts, "service =", query.service);
   if (query.kind) addCondition(parts, "kind =", query.kind);
   if (query.level) addCondition(parts, "level =", query.level);
   if (query.correlationId)
     addCondition(parts, "correlation_id =", query.correlationId);
+  if (query.method) addCondition(parts, "http_method =", query.method);
   if (query.route) addCondition(parts, "http_route =", query.route);
   if (query.statusCode)
     addCondition(parts, "http_status_code =", query.statusCode);
+  if (query.statusClass) {
+    const statusBase = Number(query.statusClass[0]) * 100;
+    addCondition(parts, "http_status_code >=", statusBase);
+    addCondition(parts, "http_status_code <=", statusBase + 99);
+  }
   if (query.durationMin !== undefined)
     addCondition(parts, "http_duration_ms >=", query.durationMin);
   if (query.durationMax !== undefined)
@@ -90,7 +97,7 @@ const SELECT_COLUMNS = `
 export async function listLogs(
   query: LogsQuery,
 ): Promise<{ data: StoredLogEvent[]; total: number }> {
-  const { conditions, values } = buildWhere(query);
+  const { conditions, values } = buildLogWhere(query);
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
   const sortColumn =
     query.sort === "durationMs" ? "http_duration_ms" : "occurred_at";
@@ -103,7 +110,7 @@ export async function listLogs(
     SELECT ${SELECT_COLUMNS}, COUNT(*) OVER() AS "totalCount"
     FROM ops.log_events
     ${where}
-    ORDER BY ${sortColumn} ${query.order === "asc" ? "ASC" : "DESC"}, event_id DESC
+    ORDER BY ${sortColumn} ${query.order === "asc" ? "ASC" : "DESC"} NULLS LAST, event_id DESC
     LIMIT $${values.length - 1} OFFSET $${values.length}
   `,
     values,
@@ -211,24 +218,124 @@ export async function deleteExpiredDiagnostics(): Promise<number> {
   return result.rowCount ?? 0;
 }
 
+const LOG_LEVELS = ["debug", "info", "warn", "error", "fatal"] as const;
+
+export type LogVolumeBucket = {
+  timestamp: string;
+  debug: number;
+  info: number;
+  warn: number;
+  error: number;
+  fatal: number;
+  total: number;
+};
+
+export type LogVolumeResult = {
+  range: { from: string; to: string };
+  bucketDurationSeconds: number;
+  buckets: LogVolumeBucket[];
+};
+
+export function selectLogBucketDuration(rangeMilliseconds: number): number {
+  if (rangeMilliseconds <= 60 * 60 * 1_000) return 60;
+  if (rangeMilliseconds <= 6 * 60 * 60 * 1_000) return 10 * 60;
+  if (rangeMilliseconds <= 24 * 60 * 60 * 1_000) return 60 * 60;
+  if (rangeMilliseconds <= 7 * 24 * 60 * 60 * 1_000) return 6 * 60 * 60;
+  return 24 * 60 * 60;
+}
+
+function floorUtcBucket(timestampMs: number, bucketMs: number): number {
+  return Math.floor(timestampMs / bucketMs) * bucketMs;
+}
+
+export function buildLogVolumeBuckets(
+  rows: Array<{
+    timestamp: Date | string;
+    level: string;
+    count: string | number;
+  }>,
+  from: Date,
+  to: Date,
+  bucketDurationSeconds: number,
+): LogVolumeBucket[] {
+  const bucketMilliseconds = bucketDurationSeconds * 1_000;
+  const buckets = new Map<number, LogVolumeBucket>();
+  const firstBucket = floorUtcBucket(from.getTime(), bucketMilliseconds);
+  const lastBucket = floorUtcBucket(to.getTime(), bucketMilliseconds);
+  for (
+    let timestamp = firstBucket;
+    timestamp <= lastBucket;
+    timestamp += bucketMilliseconds
+  ) {
+    buckets.set(timestamp, {
+      timestamp: new Date(timestamp).toISOString(),
+      debug: 0,
+      info: 0,
+      warn: 0,
+      error: 0,
+      fatal: 0,
+      total: 0,
+    });
+  }
+  for (const row of rows) {
+    if (!LOG_LEVELS.includes(row.level as (typeof LOG_LEVELS)[number]))
+      continue;
+    const timestamp = floorUtcBucket(
+      new Date(row.timestamp).getTime(),
+      bucketMilliseconds,
+    );
+    const bucket = buckets.get(timestamp);
+    if (!bucket) continue;
+    const count = Number(row.count);
+    bucket[row.level as (typeof LOG_LEVELS)[number]] = count;
+    bucket.total += count;
+  }
+  return [...buckets.values()];
+}
+
 export async function getLogVolume(
-  hours = 24,
-): Promise<Array<{ timestamp: string; level: string; count: number }>> {
+  query: LogsQuery,
+  now = new Date(),
+): Promise<LogVolumeResult> {
+  const to = query.to ? new Date(query.to) : now;
+  const from = query.from
+    ? new Date(query.from)
+    : new Date(to.getTime() - 24 * 60 * 60 * 1_000);
+  const rangeMilliseconds = to.getTime() - from.getTime();
+  const bucketDurationSeconds = selectLogBucketDuration(rangeMilliseconds);
+  const filteredQuery = {
+    ...query,
+    from: from.toISOString(),
+    to: to.toISOString(),
+  };
+  const { conditions, values } = buildLogWhere(filteredQuery);
+  values.push(`${bucketDurationSeconds} seconds`);
   const result = await getPostgresPool().query<{
-    timestamp: string;
+    timestamp: Date | string;
     level: string;
     count: string;
   }>(
     `
-    SELECT date_trunc('hour', occurred_at) AS timestamp, level, COUNT(*) AS count
+    SELECT date_bin($${values.length}::interval, occurred_at, TIMESTAMPTZ '1970-01-01 00:00:00+00') AS timestamp,
+      level, COUNT(*) AS count
     FROM ops.log_events
-    WHERE occurred_at >= NOW() - ($1 * INTERVAL '1 hour')
+    WHERE ${conditions.join(" AND ")}
     GROUP BY 1, 2
     ORDER BY 1 ASC
   `,
-    [hours],
+    values,
   );
-  return result.rows.map((row) => ({ ...row, count: Number(row.count) }));
+
+  return {
+    range: { from: from.toISOString(), to: to.toISOString() },
+    bucketDurationSeconds,
+    buckets: buildLogVolumeBuckets(
+      result.rows,
+      from,
+      to,
+      bucketDurationSeconds,
+    ),
+  };
 }
 
 export async function getServiceSummaries(): Promise<

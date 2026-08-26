@@ -7,21 +7,24 @@ import {
   requireOperator,
   unauthorizedResponse,
 } from "@/lib/server/authorization";
+import { metricSnapshotForRole } from "@/lib/server/metrics/metrics-visibility";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request): Promise<Response> {
-  if (!(await requireOperator(request))) return unauthorizedResponse();
+  const operator = await requireOperator(request);
+  if (!operator) return unauthorizedResponse();
   try {
     const [volume, services, metrics] = await Promise.all([
-      getLogVolume(24),
+      getLogVolume({ limit: 50, offset: 0, sort: "timestamp", order: "desc" }),
       getServiceSummaries(),
       getLatestMetricSnapshot(),
     ]);
-    const total = volume.reduce((sum, point) => sum + point.count, 0);
-    const errors = volume
-      .filter((point) => point.level === "error" || point.level === "fatal")
-      .reduce((sum, point) => sum + point.count, 0);
+    const total = volume.buckets.reduce((sum, point) => sum + point.total, 0);
+    const errors = volume.buckets.reduce(
+      (sum, point) => sum + point.error + point.fatal,
+      0,
+    );
     const lastUpdated = metrics?.measuredAt ?? null;
     return Response.json({
       data: {
@@ -29,7 +32,7 @@ export async function GET(request: Request): Promise<Response> {
         errorsLast24Hours: errors,
         errorRate: total ? errors / total : 0,
         services,
-        metrics,
+        metrics: metrics ? metricSnapshotForRole(metrics, operator.role) : null,
         metricsStale:
           !lastUpdated || Date.now() - new Date(lastUpdated).getTime() > 60_000,
       },

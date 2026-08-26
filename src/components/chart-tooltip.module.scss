@@ -1,0 +1,58 @@
+.tooltip {
+  min-width: 11rem;
+  max-width: min(22rem, calc(100vw - 2rem));
+  padding: 0.7rem 0.75rem;
+  border: 1px solid var(--card-border);
+  border-radius: 6px;
+  background: var(--card-bg);
+  box-shadow: 0 8px 24px var(--shadow-md);
+  color: var(--foreground);
+  font-size: 0.75rem;
+}
+
+.label {
+  margin: 0 0 0.55rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--foreground-strong);
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.values {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.value {
+  display: grid;
+  grid-template-columns: 0.5rem minmax(4rem, 1fr) auto;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.swatch {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 2px;
+}
+
+.name {
+  overflow: hidden;
+  color: var(--foreground-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.value strong {
+  color: var(--foreground-strong);
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+  font-weight: 600;
+  text-align: right;
+  white-space: nowrap;
+}

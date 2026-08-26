@@ -69,8 +69,7 @@ export function OperatorsView({ currentEmail }: { currentEmail: string }) {
           <p className={styles.eyebrow}>Access control</p>
           <h1 className={styles.heading}>Ops users</h1>
           <p className={styles.subheading}>
-            Grant dashboard access to a Microsoft account. Viewers can use Ops;
-            admins can also manage this list.
+            Grant access to developers and infra maintainers.
           </p>
         </div>
       </div>

@@ -49,8 +49,8 @@ export function OverviewView() {
           <p className={styles.eyebrow}>Production observability</p>
           <h1 className={styles.heading}>Operations overview</h1>
           <p className={styles.subheading}>
-            A safe, current view of registered services, host capacity, and
-            production event health.
+            Current view of registered services, host capacity, and production
+            event health.
           </p>
         </div>
         <div className={styles.headerActions}>

@@ -5,18 +5,24 @@ import {
   requireOperator,
   unauthorizedResponse,
 } from "@/lib/server/authorization";
+import { metricSnapshotForRole } from "@/lib/server/metrics/metrics-visibility";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request): Promise<Response> {
-  if (!(await requireOperator(request))) return unauthorizedResponse();
+  const operator = await requireOperator(request);
+  if (!operator) return unauthorizedResponse();
   try {
     const range = parseMetricsRange(request.url);
-    const data = await getMetricSnapshots(range);
+    const snapshots = await getMetricSnapshots(range);
+    const data = snapshots.map((snapshot) =>
+      metricSnapshotForRole(snapshot, operator.role),
+    );
     const lastUpdated = data.at(-1)?.measuredAt ?? null;
     return Response.json({
       data,
       range,
+      operatorRole: operator.role,
       lastUpdated,
       stale:
         !lastUpdated || Date.now() - new Date(lastUpdated).getTime() > 60_000,

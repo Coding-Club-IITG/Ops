@@ -189,6 +189,181 @@
   margin-bottom: 1rem;
 }
 
+.savedViewBar,
+.customRange,
+.inlineActions {
+  display: flex;
+  align-items: end;
+  gap: 0.75rem;
+}
+
+.savedViewBar {
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.savedViewBar .fieldLabel {
+  width: min(100%, 24rem);
+}
+
+.customRange {
+  margin: -0.25rem 0 1rem;
+}
+
+.customRange .fieldLabel {
+  width: min(100%, 18rem);
+}
+
+.advancedFilters {
+  margin-bottom: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--background-secondary);
+}
+
+.advancedFilters summary {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.75rem;
+  color: var(--foreground-secondary);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.advancedGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(10rem, 1fr));
+  gap: 0.75rem;
+  padding: 0 0.75rem 0.75rem;
+}
+
+.columnPicker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem 1rem;
+  margin: 0 0.75rem 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  color: var(--foreground-secondary);
+  font-size: 0.75rem;
+}
+
+.columnPicker legend {
+  padding-inline: 0.35rem;
+  font-weight: 600;
+}
+
+.volumePanel {
+  margin-bottom: 1rem;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.chart {
+  width: 100%;
+  height: 16rem;
+  padding: 0.5rem 0.5rem 0;
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.coreGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(8rem, 1fr));
+  gap: 1rem;
+}
+
+.coreMetric {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.35rem 0.75rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.coreMetric strong {
+  color: var(--foreground-strong);
+}
+
+.coreMetric .meter {
+  grid-column: 1 / -1;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.drawerBackdrop {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: flex;
+  justify-content: flex-end;
+  background: rgb(0 0 0 / 45%);
+}
+
+.drawer {
+  width: min(100%, 38rem);
+  height: 100%;
+  padding: 1.25rem;
+  overflow-y: auto;
+  border-left: 1px solid var(--border);
+  background: var(--card-bg);
+  box-shadow: -8px 0 24px var(--shadow-md);
+}
+
+.drawerHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.drawerHeader h2 {
+  margin: 0;
+  color: var(--foreground-strong);
+  font-size: 1.125rem;
+}
+
+.detailList {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  border-top: 1px solid var(--border);
+}
+
+.detailList > div {
+  display: grid;
+  grid-template-columns: minmax(8rem, 0.35fr) 1fr;
+  gap: 1rem;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.detailList dt {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.detailList dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--foreground);
+  white-space: pre-wrap;
+}
+
 .input,
 .select {
   width: 100%;
@@ -518,6 +693,14 @@
   .toolbar {
     grid-template-columns: 1fr 1fr;
   }
+
+  .advancedGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .coreGrid {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 @media (max-width: 560px) {
@@ -539,7 +722,37 @@
   }
 
   .toolbar,
-  .operatorForm {
+  .operatorForm,
+  .advancedGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .savedViewBar,
+  .customRange {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .savedViewBar .fieldLabel,
+  .customRange .fieldLabel {
+    width: 100%;
+  }
+
+  .inlineActions {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .chart {
+    height: 13rem;
+  }
+
+  .detailList > div {
+    grid-template-columns: 1fr;
+    gap: 0.25rem;
+  }
+
+  .coreGrid {
     grid-template-columns: 1fr;
   }
 
