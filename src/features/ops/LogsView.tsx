@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Download, RefreshCw, ShieldCheck } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+import { StatusBadge, type StatusTone } from "@/components/StatusBadge";
 import type {
   LogDiagnostic,
   LogsQuery,
@@ -12,6 +13,13 @@ import { LOG_EVENT_PROJECT_REGISTRY } from "@contracts/log-event-v1/project-regi
 import styles from "@/features/ops/ops.module.scss";
 
 const PAGE_SIZE = 50;
+const LOG_LEVEL_TONES: Record<StoredLogEvent["level"], StatusTone> = {
+  debug: "neutral",
+  info: "info",
+  warn: "warning",
+  error: "danger",
+  fatal: "danger",
+};
 const IST_DATE_TIME_FORMAT = new Intl.DateTimeFormat("en-IN", {
   timeZone: "Asia/Kolkata",
   dateStyle: "medium",
@@ -143,16 +151,13 @@ export function LogsView() {
             bodies, credentials, identity data, and raw URLs are never captured.
           </p>
         </div>
-        <div>
-          <span
-            className={live ? styles.live : styles.offline}
-            aria-live="polite"
-          >
-            ● {live ? "Live" : "Reconnecting"}
-          </span>{" "}
+        <div className={styles.headerActions}>
+          <StatusBadge tone={live ? "success" : "warning"} live="polite">
+            {live ? "Live" : "Reconnecting"}
+          </StatusBadge>
           <a className={styles.button} href={exportUrl}>
-            <Download size={15} />
-            &nbsp; Export CSV
+            <Download aria-hidden="true" size={15} />
+            Export CSV
           </a>
         </div>
       </div>
@@ -277,7 +282,7 @@ export function LogsView() {
               {total.toLocaleString()} events · page {page} of {pages}
             </span>
             <button
-              className={styles.button}
+              className={styles.secondaryButton}
               disabled={page <= 1}
               onClick={() =>
                 setQuery((current) => ({
@@ -289,7 +294,7 @@ export function LogsView() {
               Previous
             </button>
             <button
-              className={styles.button}
+              className={styles.secondaryButton}
               disabled={page >= pages}
               onClick={() =>
                 setQuery((current) => ({
@@ -301,7 +306,7 @@ export function LogsView() {
               Next
             </button>
             <button
-              className={styles.button}
+              className={styles.secondaryButton}
               aria-label="Refresh logs"
               onClick={() => void refresh()}
             >
@@ -341,11 +346,7 @@ function LogRow({
         </div>
       </td>
       <td>
-        <span
-          className={`${styles.status} ${log.level === "error" || log.level === "fatal" ? styles.error : ""}`}
-        >
-          {log.level}
-        </span>
+        <StatusBadge tone={LOG_LEVEL_TONES[log.level]}>{log.level}</StatusBadge>
       </td>
       <td className={styles.message}>
         {log.message}

@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, LogOut } from "lucide-react";
+import { LogOut } from "lucide-react";
+import { StatusBadge } from "@/components/StatusBadge";
+import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { authClient } from "@/lib/auth-client";
 import styles from "@/components/layout/navbar.module.scss";
 
@@ -27,8 +29,11 @@ export function Navbar({
     <header className={styles.header}>
       <div className={styles.inner}>
         <Link href="/" className={styles.brand}>
-          Ops
+          <span>CC IITG</span>
+          <span className={styles.brandSeparator}>/</span>
+          <strong>Ops</strong>
         </Link>
+        <ThemeToggle />
         <nav className={styles.nav} aria-label="Primary navigation">
           {items.map(({ name, href }) => {
             const active = pathname === href || pathname.startsWith(href + "/");
@@ -47,10 +52,9 @@ export function Navbar({
 
         <div className={styles.spacer} />
         <div className={styles.context}>
-          <div className={styles.environment}>
-            <Activity size={16} strokeWidth={2.5} />
-            <span>Production</span>
-          </div>
+          <StatusBadge className={styles.environment} tone="success">
+            <span>production</span>
+          </StatusBadge>
           <div className={styles.divider} />
           <div className={styles.operator}>
             <span>{operator.email}</span>

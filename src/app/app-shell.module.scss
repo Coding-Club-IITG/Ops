@@ -1,30 +1,120 @@
 .body {
-  --color-surface: #f8f9fa;
-  --color-surface-container-low: #f3f4f5;
-  --color-surface-container: #eceef0;
-  --color-surface-container-high: #e4e6e9;
-  --color-surface-container-lowest: #ffffff;
-  --color-on-surface: #191c1d;
-  --color-on-surface-variant: #42474e;
-  --color-primary: #003d9b;
-  --color-primary-container: #0052cc;
-  --color-success: #1a6c3a;
-  --color-error: #9f0519;
+  color-scheme: dark;
+
+  // GitHub-derived dark palette, shared with CCW.
+  --primary: #58a6ff;
+  --primary-hover: #79c0ff;
+  --primary-alpha: rgba(88, 166, 255, 0.1);
+  --background: #0d1117;
+  --background-secondary: #161b22;
+  --surface: #161b22;
+  --surface-secondary: #1c2128;
+  --surface-hover: #21262d;
+  --foreground: #c9d1d9;
+  --foreground-secondary: #8b949e;
+  --foreground-strong: #e6edf3;
+  --muted: #8b949e;
+  --muted-light: #6e7681;
+  --border: #30363d;
+  --border-light: #21262d;
+  --border-input: #30363d;
+  --focus-ring: rgba(88, 166, 255, 0.4);
+  --btn-primary-bg: #238636;
+  --btn-primary-bg-hover: #2ea043;
+  --btn-primary-text: #ffffff;
+  --btn-secondary-bg: #21262d;
+  --btn-secondary-bg-hover: #30363d;
+  --btn-secondary-border: #363b42;
+  --btn-secondary-text: #c9d1d9;
+  --card-bg: #161b22;
+  --card-border: #30363d;
+  --table-header-bg: #161b22;
+  --table-header-text: #8b949e;
+  --success: #3fb950;
+  --success-text: #56d364;
+  --success-bg: rgba(63, 185, 80, 0.1);
+  --success-border: rgba(63, 185, 80, 0.4);
+  --warning: #d29922;
+  --warning-text: #e3b341;
+  --warning-bg: rgba(187, 128, 9, 0.1);
+  --warning-border: rgba(187, 128, 9, 0.4);
+  --info-text: #79c0ff;
+  --info-bg: rgba(56, 139, 253, 0.1);
+  --info-border: rgba(56, 139, 253, 0.4);
+  --error: #f85149;
+  --error-text: #ffa198;
+  --error-bg: rgba(248, 81, 73, 0.1);
+  --error-border: rgba(248, 81, 73, 0.4);
+  --tab-active-border: #f78166;
+  --shadow-sm: rgba(0, 0, 0, 0.2);
+  --shadow-md: rgba(0, 0, 0, 0.3);
 
   min-height: 100vh;
   margin: 0;
-  background: var(--color-surface);
-  color: var(--color-on-surface);
+  background: var(--background);
+  color: var(--foreground);
   font-family:
-    Inter,
-    ui-sans-serif,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
-  line-height: 1.6;
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica,
+    Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  font-size: 14px;
+  line-height: 1.5;
   text-align: left;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition:
+    background 200ms ease,
+    color 200ms ease;
+}
+
+:global([data-theme="light"]) .body {
+  color-scheme: light;
+
+  --primary: #0969da;
+  --primary-hover: #0550ae;
+  --primary-alpha: rgba(9, 105, 218, 0.08);
+  --background: #ffffff;
+  --background-secondary: #f6f8fa;
+  --surface: #ffffff;
+  --surface-secondary: #f6f8fa;
+  --surface-hover: #f3f4f6;
+  --foreground: #24292f;
+  --foreground-secondary: #57606a;
+  --foreground-strong: #1f2328;
+  --muted: #57606a;
+  --muted-light: #6e7781;
+  --border: #d0d7de;
+  --border-light: #d8dee4;
+  --border-input: #d0d7de;
+  --focus-ring: rgba(9, 105, 218, 0.4);
+  --btn-primary-bg: #2da44e;
+  --btn-primary-bg-hover: #2c974b;
+  --btn-primary-text: #ffffff;
+  --btn-secondary-bg: #f6f8fa;
+  --btn-secondary-bg-hover: #f3f4f6;
+  --btn-secondary-border: #d0d7de;
+  --btn-secondary-text: #24292f;
+  --card-bg: #ffffff;
+  --card-border: #d0d7de;
+  --table-header-bg: #f6f8fa;
+  --table-header-text: #424a53;
+  --success: #1a7f37;
+  --success-text: #116329;
+  --success-bg: #dafbe1;
+  --success-border: #aceebb;
+  --warning: #9a6700;
+  --warning-text: #7d4e00;
+  --warning-bg: #fff8c5;
+  --warning-border: #d4a72c;
+  --info-text: #0550ae;
+  --info-bg: #ddf4ff;
+  --info-border: #b6e3ff;
+  --error: #cf222e;
+  --error-text: #82071e;
+  --error-bg: #ffebe9;
+  --error-border: #ff8182;
+  --tab-active-border: #fd8c73;
+  --shadow-sm: rgba(31, 35, 40, 0.04);
+  --shadow-md: rgba(31, 35, 40, 0.1);
 }
 
 .body *,
@@ -44,6 +134,10 @@
 .body a:focus-visible,
 .body input:focus-visible,
 .body select:focus-visible {
-  outline: 2px solid var(--color-primary-container);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
+}
+
+.body ::selection {
+  background: var(--primary-alpha);
 }

@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import styles from "@/app/app-shell.module.scss";
+import { ThemeProvider, type Theme } from "@/components/layout/ThemeProvider";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.BASE_URL ?? "http://localhost:3005"),
@@ -7,14 +9,20 @@ export const metadata: Metadata = {
   description: "Production observability for registered services.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const cookieStore = await cookies();
+  const theme: Theme =
+    cookieStore.get("theme")?.value === "light" ? "light" : "dark";
+
   return (
-    <html lang="en">
-      <body className={styles.body}>{children}</body>
+    <html lang="en" data-theme={theme}>
+      <body className={styles.body}>
+        <ThemeProvider initialTheme={theme}>{children}</ThemeProvider>
+      </body>
     </html>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useCallback } from "react";
 import { apiFetch } from "@/lib/api";
+import { StatusBadge, type StatusTone } from "@/components/StatusBadge";
 import type { OverviewData } from "@/types/ops.types";
 import { usePolling } from "@/features/ops/use-polling";
 import styles from "@/features/ops/ops.module.scss";
@@ -10,6 +11,14 @@ import { LOG_EVENT_PROJECT_REGISTRY } from "@contracts/log-event-v1/project-regi
 const PROJECT_NAMES = new Map(
   LOG_EVENT_PROJECT_REGISTRY.map((project) => [project.id, project.name]),
 );
+const SERVICE_STATUS_TONES: Record<
+  OverviewData["services"][number]["status"],
+  StatusTone
+> = {
+  healthy: "success",
+  stale: "warning",
+  unknown: "neutral",
+};
 
 function formatNumber(value: number): string {
   return new Intl.NumberFormat("en-IN").format(value);
@@ -24,6 +33,14 @@ export function OverviewView() {
     [],
   );
   const { data, loading, error } = usePolling(load);
+  const metricsStatus = !data
+    ? {
+        label: loading ? "Loading metrics" : "Metrics unavailable",
+        tone: "neutral" as const,
+      }
+    : data.metricsStale
+      ? { label: "Metrics stale", tone: "warning" as const }
+      : { label: "Metrics current", tone: "success" as const };
 
   return (
     <main className={styles.page}>
@@ -36,11 +53,11 @@ export function OverviewView() {
             production event health.
           </p>
         </div>
-        <span
-          className={`${styles.status} ${data?.metricsStale ? styles.stale : styles.healthy}`}
-        >
-          {data?.metricsStale ? "Metrics stale" : "Metrics current"}
-        </span>
+        <div className={styles.headerActions}>
+          <StatusBadge tone={metricsStatus.tone}>
+            {metricsStatus.label}
+          </StatusBadge>
+        </div>
       </div>
       {error && (
         <p className={styles.error} role="alert">
@@ -83,22 +100,24 @@ export function OverviewView() {
             </span>
           </div>
           <div className={`${styles.panelBody} ${styles.serviceList}`}>
-            {data?.services.map((service) => (
-              <div className={styles.serviceRow} key={service.service}>
-                <div>
-                  <strong>{service.service}</strong>
-                  <div className={styles.muted}>
-                    {PROJECT_NAMES.get(service.project) ?? service.project}
+            {data?.services.length ? (
+              data.services.map((service) => (
+                <div className={styles.serviceRow} key={service.service}>
+                  <div>
+                    <strong>{service.service}</strong>
+                    <div className={styles.muted}>
+                      {PROJECT_NAMES.get(service.project) ?? service.project}
+                    </div>
                   </div>
+                  <StatusBadge tone={SERVICE_STATUS_TONES[service.status]}>
+                    {service.status}
+                  </StatusBadge>
+                  <span className={styles.muted}>
+                    {service.errorsLastHour} errors / hour
+                  </span>
                 </div>
-                <span className={`${styles.status} ${styles[service.status]}`}>
-                  {service.status}
-                </span>
-                <span className={styles.muted}>
-                  {service.errorsLastHour} errors / hour
-                </span>
-              </div>
-            )) ?? (
+              ))
+            ) : (
               <div className={styles.empty}>Waiting for service events…</div>
             )}
           </div>
@@ -109,7 +128,7 @@ export function OverviewView() {
             <h2>Host capacity</h2>
             <span className={styles.muted}>30 second samples</span>
           </div>
-          <div className={`${styles.panelBody} ${styles.serviceList}`}>
+          <div className={`${styles.panelBody} ${styles.metricList}`}>
             <Metric
               label="CPU"
               value={
@@ -167,10 +186,10 @@ function Metric({
   percent?: number;
 }) {
   return (
-    <div>
-      <div className={styles.serviceRow}>
+    <div className={styles.metricRow}>
+      <div className={styles.metricSummary}>
         <strong>{label}</strong>
-        <span>{value}</span>
+        <span className={styles.metricValue}>{value}</span>
       </div>
       {percent !== undefined && (
         <meter

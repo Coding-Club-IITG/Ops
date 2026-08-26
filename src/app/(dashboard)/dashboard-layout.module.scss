@@ -2,10 +2,10 @@
   display: flex;
   min-height: 100vh;
   flex-direction: column;
-  background: var(--color-surface);
+  background: var(--background);
 }
 
 .main {
   flex: 1;
-  background: var(--color-surface);
+  background: var(--background);
 }

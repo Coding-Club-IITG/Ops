@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { authClient } from "@/lib/auth-client";
 import styles from "@/features/ops/ops.module.scss";
 
@@ -42,7 +43,10 @@ export default function SignInPage() {
       <section
         className={`${styles.panel} ${styles.panelBody} ${styles.signInCard}`}
       >
-        <p className={styles.eyebrow}>Coding Club IIT Guwahati</p>
+        <div className={styles.signInTopline}>
+          <p className={styles.eyebrow}>Coding Club IIT Guwahati</p>
+          <ThemeToggle />
+        </div>
         <h1 className={styles.heading}>Sign in to Ops</h1>
         <p className={styles.subheading}>
           Use your Microsoft account. Access is restricted to accounts granted

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { apiFetch } from "@/lib/api";
+import { StatusBadge } from "@/components/StatusBadge";
 import type {
   OperatorGrantDto,
   OperatorRole,
@@ -143,7 +144,13 @@ export function OperatorsView({ currentEmail }: { currentEmail: string }) {
                   <tr key={operator.email}>
                     <td>{operator.email}</td>
                     <td className={styles.mono}>{operator.role}</td>
-                    <td>{operator.enabled ? "Enabled" : "Disabled"}</td>
+                    <td>
+                      <StatusBadge
+                        tone={operator.enabled ? "success" : "neutral"}
+                      >
+                        {operator.enabled ? "Enabled" : "Disabled"}
+                      </StatusBadge>
+                    </td>
                     <td>{new Date(operator.updatedAt).toLocaleString()}</td>
                     <td>
                       <button

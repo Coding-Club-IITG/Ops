@@ -2,11 +2,19 @@
 
 import { useCallback, useState } from "react";
 import { apiFetch } from "@/lib/api";
+import { StatusBadge, type StatusTone } from "@/components/StatusBadge";
 import type { MetricSnapshot } from "@/types/ops.types";
 import { usePolling } from "@/features/ops/use-polling";
 import styles from "@/features/ops/ops.module.scss";
 
 type Range = "1h" | "6h" | "24h" | "7d" | "30d";
+
+function processStatusTone(status: string): StatusTone {
+  if (status === "online") return "success";
+  if (status === "errored") return "danger";
+  if (status === "stopped" || status === "stopping") return "warning";
+  return "neutral";
+}
 
 export function MetricsView() {
   const [range, setRange] = useState<Range>("1h");
@@ -21,6 +29,11 @@ export function MetricsView() {
   );
   const { data, loading, error } = usePolling(load);
   const latest = data?.data.at(-1) ?? null;
+  const sampleStatus = !data
+    ? { label: loading ? "Loading" : "Unavailable", tone: "neutral" as const }
+    : data.stale
+      ? { label: "Stale", tone: "warning" as const }
+      : { label: "Current", tone: "success" as const };
 
   return (
     <main className={styles.page}>
@@ -33,16 +46,18 @@ export function MetricsView() {
             30 seconds.
           </p>
         </div>
-        <select
-          className={styles.select}
-          aria-label="Metrics range"
-          value={range}
-          onChange={(event) => setRange(event.target.value as Range)}
-        >
-          {["1h", "6h", "24h", "7d", "30d"].map((option) => (
-            <option key={option}>{option}</option>
-          ))}
-        </select>
+        <div className={styles.headerActions}>
+          <select
+            className={`${styles.select} ${styles.compactSelect}`}
+            aria-label="Metrics range"
+            value={range}
+            onChange={(event) => setRange(event.target.value as Range)}
+          >
+            {["1h", "6h", "24h", "7d", "30d"].map((option) => (
+              <option key={option}>{option}</option>
+            ))}
+          </select>
+        </div>
       </div>
       {error && (
         <p className={styles.error} role="alert">
@@ -73,9 +88,9 @@ export function MetricsView() {
         <article className={`${styles.panel} ${styles.panelWide}`}>
           <div className={styles.panelHeader}>
             <h2>Registered PM2 processes</h2>
-            <span className={data?.stale ? styles.offline : styles.live}>
-              {data?.stale ? "Stale" : "Current"}
-            </span>
+            <StatusBadge tone={sampleStatus.tone}>
+              {sampleStatus.label}
+            </StatusBadge>
           </div>
           <div className={styles.tableWrap}>
             <table className={styles.table}>
@@ -95,7 +110,11 @@ export function MetricsView() {
                     <td>
                       <strong>{process.name}</strong>
                     </td>
-                    <td>{process.status}</td>
+                    <td>
+                      <StatusBadge tone={processStatusTone(process.status)}>
+                        {process.status}
+                      </StatusBadge>
+                    </td>
                     <td>{process.cpuPercent.toFixed(1)}%</td>
                     <td>{process.memoryMb} MB</td>
                     <td>{process.restartCount}</td>
@@ -119,18 +138,25 @@ export function MetricsView() {
             </span>
           </div>
           <div className={styles.panelBody}>
-            <div className={styles.historyChart} aria-label="CPU usage history">
-              {data?.data.map((point) => (
-                <meter
-                  className={styles.historyBar}
-                  key={point.measuredAt}
-                  title={`${new Date(point.measuredAt).toLocaleString()}: ${point.cpu.usagePercent.toFixed(1)}%`}
-                  min={0}
-                  max={100}
-                  value={point.cpu.usagePercent}
-                />
-              ))}
-            </div>
+            {data?.data.length ? (
+              <div
+                className={styles.historyChart}
+                aria-label="CPU usage history"
+              >
+                {data.data.map((point) => (
+                  <meter
+                    className={styles.historyBar}
+                    key={point.measuredAt}
+                    title={`${new Date(point.measuredAt).toLocaleString()}: ${point.cpu.usagePercent.toFixed(1)}%`}
+                    min={0}
+                    max={100}
+                    value={point.cpu.usagePercent}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className={styles.empty}>No metric samples reported.</div>
+            )}
           </div>
         </article>
       </section>

@@ -1,35 +1,49 @@
 .header {
   position: sticky;
-  z-index: 20;
+  z-index: 100;
   top: 0;
-  height: 3.5rem;
-  border-bottom: 1px solid rgba(195, 198, 214, 0.25);
-  background: rgba(243, 244, 245, 0.92);
-  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+  background: var(--background);
 }
 
 .inner {
   display: flex;
   align-items: center;
-  height: 100%;
-  gap: 1.4rem;
-  padding: 0 1.5rem;
+  min-height: 3.5rem;
+  gap: 0.75rem;
+  padding: 0.65rem 1.5rem;
 }
 
 .brand {
+  display: inline-flex;
   flex-shrink: 0;
-  color: var(--color-primary);
-  font-size: 1.08rem;
-  font-weight: 760;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--foreground-strong);
+  font-size: 1rem;
   letter-spacing: -0.02em;
   text-decoration: none;
 }
 
+.brand span:first-child {
+  font-weight: 700;
+}
+
+.brand strong {
+  font-weight: 600;
+}
+
+.brandSeparator {
+  color: var(--muted-light);
+  font-weight: 400;
+}
+
 .nav {
   display: flex;
+  align-self: stretch;
   align-items: center;
-  height: 100%;
   gap: 0.2rem;
+  margin-left: 0.4rem;
 }
 
 .link {
@@ -37,27 +51,34 @@
   display: flex;
   align-items: center;
   height: 100%;
-  padding: 0 0.7rem;
-  color: var(--color-on-surface-variant);
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  padding: 0 0.65rem;
+  border-radius: 6px;
+  color: var(--foreground);
+  font-size: 0.875rem;
+  font-weight: 500;
   text-decoration: none;
-  text-transform: uppercase;
-  transition: color 150ms ease;
+  transition:
+    background 150ms ease,
+    color 150ms ease;
+}
+
+.link:hover {
+  background: var(--surface-hover);
+  color: var(--foreground-strong);
 }
 
 .active {
-  color: var(--color-primary);
+  color: var(--foreground-strong);
 }
+
 .active::after {
   position: absolute;
-  right: 0.7rem;
-  bottom: 0;
-  left: 0.7rem;
+  right: 0.55rem;
+  bottom: -0.65rem;
+  left: 0.55rem;
   height: 2px;
-  border-radius: 999px;
-  background: var(--color-primary);
+  border-radius: 2px 2px 0 0;
+  background: var(--tab-active-border);
   content: "";
 }
 
@@ -68,34 +89,27 @@
 .context {
   display: flex;
   align-items: center;
-  gap: 0.8rem;
+  gap: 0.75rem;
 }
 
-.environment,
 .operator {
   display: flex;
   align-items: center;
   gap: 0.35rem;
-  color: var(--color-on-surface-variant);
-  font-size: 0.78rem;
+  color: var(--muted);
+  font-size: 0.75rem;
 }
 
-.environment {
-  color: var(--color-on-surface);
-  font-weight: 650;
-}
-.environment svg {
-  color: var(--color-primary);
-}
 .role {
-  color: var(--color-on-surface);
-  font-weight: 700;
+  color: var(--foreground-strong);
+  font-weight: 600;
   text-transform: capitalize;
 }
+
 .divider {
   width: 1px;
   height: 1rem;
-  background: rgba(99, 106, 125, 0.22);
+  background: var(--border);
 }
 
 .signOut {
@@ -105,39 +119,72 @@
   width: 2rem;
   height: 2rem;
   padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: var(--color-surface-container-high);
+  border: 1px solid var(--btn-secondary-border);
+  border-radius: 6px;
+  background: var(--btn-secondary-bg);
+  color: var(--btn-secondary-text);
   cursor: pointer;
-  transition: opacity 150ms ease;
-}
-.signOut:hover {
-  opacity: 0.72;
+  transition: background 150ms ease;
 }
 
-@media (max-width: 760px) {
+.signOut:hover {
+  background: var(--btn-secondary-bg-hover);
+}
+
+@media (max-width: 820px) {
   .inner {
-    gap: 0.5rem;
-    padding: 0 0.8rem;
+    gap: 0.35rem;
+    padding-inline: 0.75rem;
   }
+
+  .brand span:first-child,
+  .brandSeparator,
   .operator,
   .divider,
   .environment span {
     display: none;
   }
+
   .nav {
     flex: 1;
     justify-content: center;
+    margin-left: 0;
   }
+
   .link {
     padding-inline: 0.45rem;
-    font-size: 0.65rem;
+    font-size: 0.78rem;
   }
+
   .active::after {
-    right: 0.45rem;
-    left: 0.45rem;
+    right: 0.4rem;
+    left: 0.4rem;
   }
+
   .spacer {
+    display: none;
+  }
+
+  .environment {
+    padding: 0.25rem;
+  }
+}
+
+@media (max-width: 430px) {
+  .inner {
+    padding-inline: 0.5rem;
+  }
+
+  .nav {
+    gap: 0;
+  }
+
+  .link {
+    padding-inline: 0.35rem;
+    font-size: 0.72rem;
+  }
+
+  .environment {
     display: none;
   }
 }
