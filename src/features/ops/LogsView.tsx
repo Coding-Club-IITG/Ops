@@ -12,6 +12,15 @@ import { LOG_EVENT_PROJECT_REGISTRY } from "@contracts/log-event-v1/project-regi
 import styles from "@/features/ops/ops.module.scss";
 
 const PAGE_SIZE = 50;
+const IST_DATE_TIME_FORMAT = new Intl.DateTimeFormat("en-IN", {
+  timeZone: "Asia/Kolkata",
+  dateStyle: "medium",
+  timeStyle: "medium",
+});
+
+function formatIstTimestamp(timestamp: string): string {
+  return IST_DATE_TIME_FORMAT.format(new Date(timestamp));
+}
 
 export function LogsView() {
   const [query, setQuery] = useState<LogsQuery>({
@@ -231,7 +240,7 @@ export function LogsView() {
             <table className={styles.table}>
               <thead>
                 <tr>
-                  <th>Time</th>
+                  <th>Time (IST)</th>
                   <th>Service</th>
                   <th>Level</th>
                   <th>Message</th>
@@ -321,7 +330,9 @@ function LogRow({
   return (
     <tr>
       <td className={styles.mono}>
-        {new Date(log.timestamp).toLocaleString()}
+        <time dateTime={log.timestamp} title={log.timestamp}>
+          {formatIstTimestamp(log.timestamp)}
+        </time>
       </td>
       <td>
         <strong>{log.service}</strong>

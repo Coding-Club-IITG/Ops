@@ -13,6 +13,16 @@ export type StoredLogEvent = LogEventV1 & {
   } | null;
 };
 
+export function serializeDiagnosticJson(diagnostic: LogDiagnostic): {
+  frames: string;
+  cause: string | null;
+} {
+  return {
+    frames: JSON.stringify(diagnostic.frames),
+    cause: diagnostic.cause ? JSON.stringify(diagnostic.cause) : null,
+  };
+}
+
 type QueryParts = { conditions: string[]; values: unknown[] };
 
 function addCondition(parts: QueryParts, sql: string, value: unknown): void {
@@ -153,6 +163,7 @@ export async function insertLogEvent(
       ],
     );
     if (result.rowCount === 1 && diagnostic) {
+      const diagnosticJson = serializeDiagnosticJson(diagnostic);
       await client.query(
         `INSERT INTO ops.log_event_diagnostics
           (event_id, message, frames, cause, fingerprint, redaction_count)
@@ -160,8 +171,8 @@ export async function insertLogEvent(
         [
           event.eventId,
           diagnostic.message,
-          diagnostic.frames,
-          diagnostic.cause ?? null,
+          diagnosticJson.frames,
+          diagnosticJson.cause,
           diagnostic.fingerprint,
           diagnostic.redactionCount,
         ],
