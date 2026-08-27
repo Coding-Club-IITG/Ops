@@ -13,6 +13,7 @@ const navItems = [
   { name: "Logs", href: "/logs" },
   { name: "Services", href: "/services" },
   { name: "Metrics", href: "/metrics" },
+  { name: "Alerts", href: "/alerts" },
 ];
 
 export function Navbar({

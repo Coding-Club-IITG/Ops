@@ -26,6 +26,9 @@ inspect sanitized error diagnostics, export log results, and monitor host and PM
   percentiles, and PM2 saturation.
 - **Correlation timelines:** Chronological retained events that share an exact
   correlation ID, exposed from the event drawer with a 500-event cap.
+- **Alerting:** Durable service and host rules with global defaults,
+  per-service overrides, sustained evaluation, service-wide notification
+  mutes, alert history, and Discord firing, reminder, and recovery messages.
 - **Audit:** Administrator-only browsing of immutable operator actions with
   date, action, and actor filters.
 - **Access management:** Administrator-managed viewer and admin grants.
@@ -37,7 +40,7 @@ inspect sanitized error diagnostics, export log results, and monitor host and PM
 - Next.js 16 App Router, React 19, and strict TypeScript
 - SCSS Modules and a shared GitHub-derived light/dark color system
 - PostgreSQL for `LogEventV1` events, full-text search, sanitized diagnostics,
-  and ingestion dead letters
+  ingestion dead letters, alert rules, alert state, and the notification outbox
 - Redis Streams for durable ingestion and Redis Pub/Sub for post-commit live
   notifications
 - MongoDB/Atlas for Better Auth, operator grants, audit events, and time-series
@@ -79,6 +82,9 @@ inspect sanitized error diagnostics, export log results, and monitor host and PM
 - The worker validates `LogEventV1` again, inserts PostgreSQL rows before
   acknowledging Redis entries, and publishes live notifications only after a
   new row is committed. `event_id` provides idempotency.
+- The worker evaluates alert rules every 30 seconds under a PostgreSQL advisory
+  lock. Alert transitions and Discord outbox entries commit atomically;
+  delivery failures never block evaluation and are retried with backoff.
 - Permanently invalid messages are retried before dead-lettering. Dead letters
   contain only a payload hash, a safe failure code, safe validation issues, and
   delivery metadata.

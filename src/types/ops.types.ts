@@ -258,3 +258,57 @@ export type AuditEvent = {
   attributes: Record<string, string | number | boolean>;
   occurredAt: string;
 };
+
+export type AlertRuleKey =
+  | "http_5xx_rate"
+  | "http_p95_latency"
+  | "application_errors"
+  | "service_silence"
+  | "pm2_process_down"
+  | "host_cpu"
+  | "host_memory"
+  | "host_disk"
+  | "metrics_stale";
+export type AlertRule = {
+  ruleKey: AlertRuleKey;
+  target: string;
+  enabled: boolean;
+  severity: "warning" | "critical";
+  threshold: number;
+  windowSeconds: number;
+  forSeconds: number;
+  reminderSeconds: number;
+  minimumCount: number;
+  updatedBy: string;
+  updatedAt: string;
+};
+export type AlertInstance = {
+  id: string;
+  ruleKey: AlertRuleKey;
+  target: string;
+  severity: "warning" | "critical";
+  status: "pending" | "firing" | "resolved";
+  summary: string;
+  value: number | null;
+  threshold: number | null;
+  pendingSince: string;
+  firedAt: string | null;
+  resolvedAt: string | null;
+  resolutionReason: string | null;
+  lastEvaluatedAt: string;
+  lastNotificationAt: string | null;
+  lastDeliveryStatus:
+    | "pending"
+    | "sending"
+    | "sent"
+    | "failed"
+    | "suppressed"
+    | null;
+};
+export type AlertMute = {
+  target: string;
+  reason: string;
+  mutedBy: string;
+  mutedAt: string;
+  expiresAt: string | null;
+};

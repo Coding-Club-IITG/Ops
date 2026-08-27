@@ -22,6 +22,9 @@ pnpm dev
 
 The web application runs at `http://localhost:3005`.
 Replace all placeholder configuration in `.env.local` before using authentication or ingestion.
+To enable Discord alerts, create a webhook for the intended server channel and
+set `DISCORD_ALERT_WEBHOOK_URL` in `.env.local`. The webhook is never exposed to
+the browser; administrators can verify it from the Alerts page.
 
 ## Verification
 

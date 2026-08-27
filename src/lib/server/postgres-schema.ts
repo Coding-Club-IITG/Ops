@@ -68,5 +68,75 @@ export async function ensurePostgresSchema(): Promise<void> {
       delivery_count INTEGER NOT NULL CHECK (delivery_count >= 5),
       failed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+
+    CREATE TABLE IF NOT EXISTS ops.alert_rules (
+      rule_key TEXT NOT NULL,
+      target TEXT NOT NULL,
+      enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      severity TEXT NOT NULL CHECK (severity IN ('warning', 'critical')),
+      threshold DOUBLE PRECISION NOT NULL CHECK (threshold >= 0),
+      window_seconds INTEGER NOT NULL CHECK (window_seconds >= 30),
+      for_seconds INTEGER NOT NULL CHECK (for_seconds >= 30),
+      reminder_seconds INTEGER NOT NULL CHECK (reminder_seconds >= 300),
+      minimum_count INTEGER NOT NULL DEFAULT 0 CHECK (minimum_count >= 0),
+      updated_by TEXT NOT NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (rule_key, target)
+    );
+
+    CREATE TABLE IF NOT EXISTS ops.alert_instances (
+      id TEXT PRIMARY KEY,
+      rule_key TEXT NOT NULL,
+      target TEXT NOT NULL,
+      severity TEXT NOT NULL CHECK (severity IN ('warning', 'critical')),
+      status TEXT NOT NULL CHECK (status IN ('pending', 'firing', 'resolved')),
+      summary TEXT NOT NULL,
+      value DOUBLE PRECISION,
+      threshold DOUBLE PRECISION,
+      pending_since TIMESTAMPTZ NOT NULL,
+      fired_at TIMESTAMPTZ,
+      resolved_at TIMESTAMPTZ,
+      resolution_reason TEXT,
+      last_evaluated_at TIMESTAMPTZ NOT NULL,
+      last_notification_at TIMESTAMPTZ,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS alert_instances_active_unique
+      ON ops.alert_instances (rule_key, target) WHERE status IN ('pending', 'firing');
+    CREATE INDEX IF NOT EXISTS alert_instances_status_updated_idx
+      ON ops.alert_instances (status, updated_at DESC);
+
+    CREATE TABLE IF NOT EXISTS ops.alert_transitions (
+      id BIGSERIAL PRIMARY KEY,
+      alert_id TEXT NOT NULL REFERENCES ops.alert_instances(id) ON DELETE CASCADE,
+      transition TEXT NOT NULL,
+      reason TEXT,
+      occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS alert_transitions_alert_time_idx
+      ON ops.alert_transitions (alert_id, occurred_at DESC);
+
+    CREATE TABLE IF NOT EXISTS ops.alert_mutes (
+      target TEXT PRIMARY KEY,
+      reason TEXT NOT NULL CHECK (char_length(reason) BETWEEN 1 AND 500),
+      muted_by TEXT NOT NULL,
+      muted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      expires_at TIMESTAMPTZ
+    );
+
+    CREATE TABLE IF NOT EXISTS ops.alert_notifications (
+      id TEXT PRIMARY KEY,
+      alert_id TEXT NOT NULL REFERENCES ops.alert_instances(id) ON DELETE CASCADE,
+      kind TEXT NOT NULL CHECK (kind IN ('firing', 'reminder', 'recovery')),
+      status TEXT NOT NULL CHECK (status IN ('pending', 'sending', 'sent', 'failed', 'suppressed')) DEFAULT 'pending',
+      attempts INTEGER NOT NULL DEFAULT 0,
+      next_attempt_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      last_error TEXT,
+      discord_message_id TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      delivered_at TIMESTAMPTZ
+    );
+    CREATE INDEX IF NOT EXISTS alert_notifications_delivery_idx
+      ON ops.alert_notifications (status, next_attempt_at);
   `);
 }

@@ -28,6 +28,17 @@ const runtimeConfigSchema = z.object({
   LOG_LIVE_CHANNEL: z.string().min(1).default("ops:logs:live:v1"),
   LOG_CONSUMER_GROUP: z.string().min(1).default("ops-workers-v1"),
   LOG_CONSUMER_NAME: z.string().min(1).default(`ops-worker-${process.pid}`),
+  DISCORD_ALERT_WEBHOOK_URL: z.preprocess(
+    (value) => (value === "" ? undefined : value),
+    z.string().url().optional(),
+  ),
+  ALERT_EVALUATION_INTERVAL_SECONDS: z.coerce
+    .number()
+    .int()
+    .min(15)
+    .max(300)
+    .default(30),
+  ALERT_RETENTION_DAYS: z.coerce.number().int().min(30).max(730).default(180),
 });
 
 export type RuntimeConfig = z.infer<typeof runtimeConfigSchema>;

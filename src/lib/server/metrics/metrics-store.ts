@@ -107,3 +107,14 @@ export async function getLatestMetricSnapshot(): Promise<MetricSnapshot | null> 
     { sort: { measuredAt: -1 }, projection: { _id: 0 } },
   );
 }
+
+export async function getObservedPm2Names(): Promise<Set<string>> {
+  const names = await (
+    await collection()
+  ).distinct("pm2.name", {
+    measuredAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1_000) },
+  });
+  return new Set(
+    names.filter((name): name is string => typeof name === "string"),
+  );
+}

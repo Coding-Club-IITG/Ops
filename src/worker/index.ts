@@ -27,6 +27,10 @@ import { ensurePostgresSchema } from "@/lib/server/postgres-schema";
 import { getPostgresPool } from "@/lib/server/postgres";
 import { getMongoClient } from "@/lib/server/mongo";
 import { ingestionEnvelopeSchema } from "@/lib/server/logs/ingestion-envelope";
+import { ensureDefaultAlertRules } from "@/lib/server/alerts/alert-rules";
+import { evaluateAlerts } from "@/lib/server/alerts/alert-engine";
+import { deliverDiscordNotifications } from "@/lib/server/alerts/discord";
+import { deleteExpiredAlertHistory } from "@/lib/server/alerts/alert-store";
 
 const config = getRuntimeConfig();
 const redis = createRedisConnection();
@@ -191,7 +195,14 @@ async function retentionLoop(): Promise<void> {
     try {
       const deleted = await deleteExpiredLogs(config.LOG_RETENTION_DAYS);
       const diagnosticsDeleted = await deleteExpiredDiagnostics();
-      console.info("Log retention completed", { deleted, diagnosticsDeleted });
+      const alertsDeleted = await deleteExpiredAlertHistory(
+        config.ALERT_RETENTION_DAYS,
+      );
+      console.info("Retention completed", {
+        deleted,
+        diagnosticsDeleted,
+        alertsDeleted,
+      });
     } catch (error) {
       console.error("Log retention failed", error);
     }
@@ -201,14 +212,41 @@ async function retentionLoop(): Promise<void> {
   }
 }
 
+async function alertLoop(): Promise<void> {
+  while (!stopping) {
+    const started = Date.now();
+    try {
+      await evaluateAlerts();
+      await deliverDiscordNotifications();
+    } catch (error) {
+      console.error("Alert evaluation failed", error);
+    }
+    await delay(
+      Math.max(
+        1_000,
+        config.ALERT_EVALUATION_INTERVAL_SECONDS * 1_000 -
+          (Date.now() - started),
+      ),
+      undefined,
+      { signal: shutdownController.signal },
+    ).catch(() => undefined);
+  }
+}
+
 async function main(): Promise<void> {
   await ensurePostgresSchema();
   await redis.connect();
   await ensureConsumerGroup();
   await ensureMongoCollections();
+  await ensureDefaultAlertRules();
   console.info("ops-worker ready");
   try {
-    await Promise.all([ingestionLoop(), metricsLoop(), retentionLoop()]);
+    await Promise.all([
+      ingestionLoop(),
+      metricsLoop(),
+      retentionLoop(),
+      alertLoop(),
+    ]);
   } finally {
     await Promise.allSettled([
       redis.isOpen ? redis.close() : Promise.resolve(),

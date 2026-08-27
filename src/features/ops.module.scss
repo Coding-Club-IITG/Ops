@@ -143,6 +143,57 @@
   margin-bottom: 1rem;
 }
 
+.alertFilters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(10rem, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.alertRules {
+  margin-top: 1rem;
+}
+.ruleGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+.ruleCard {
+  overflow: hidden;
+  border: 1px solid var(--card-border);
+  border-radius: 6px;
+  background: var(--card-bg);
+}
+.ruleFields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  padding: 1rem;
+}
+.ruleFields .button {
+  align-self: end;
+}
+.ruleOverride {
+  display: grid;
+  grid-template-columns: minmax(10rem, 1fr) minmax(12rem, 1fr) auto;
+  align-items: end;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+.inlineAction {
+  display: flex;
+  min-width: 24rem;
+  align-items: center;
+  gap: 0.4rem;
+}
+.inlineAction .input {
+  min-width: 10rem;
+}
+.successMessage {
+  color: var(--success-text);
+  font-size: 0.8125rem;
+}
+
 .attributeDetails summary {
   cursor: pointer;
   color: var(--foreground-secondary);
@@ -820,6 +871,9 @@
   .auditFilters {
     grid-template-columns: 1fr 1fr;
   }
+  .ruleGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .stat {
     grid-column: span 6;
   }
@@ -848,8 +902,17 @@
   }
 
   .serviceDirectory,
-  .auditFilters {
+  .auditFilters,
+  .alertFilters,
+  .ruleGrid,
+  .ruleOverride,
+  .ruleFields {
     grid-template-columns: 1fr;
+  }
+  .inlineAction {
+    min-width: 16rem;
+    flex-direction: column;
+    align-items: stretch;
   }
   .page {
     padding: 1.25rem 0.75rem 3rem;
