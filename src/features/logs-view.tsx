@@ -781,7 +781,6 @@ export function LogsView() {
           event={selected}
           diagnostic={diagnostic}
           diagnosticLoading={diagnosticLoading}
-          isAdmin={isAdmin}
           onDiagnostic={() => void viewDiagnostic()}
           onClose={() => {
             setSelected(null);
@@ -938,14 +937,12 @@ function EventDrawer({
   event,
   diagnostic,
   diagnosticLoading,
-  isAdmin,
   onDiagnostic,
   onClose,
 }: {
   event: StoredLogEvent;
   diagnostic: LogDiagnostic | null;
   diagnosticLoading: boolean;
-  isAdmin: boolean;
   onDiagnostic: () => void;
   onClose: () => void;
 }) {
@@ -1100,7 +1097,7 @@ function EventDrawer({
                   {event.diagnostic.redactionCount} redaction
                   {event.diagnostic.redactionCount === 1 ? "" : "s"}
                 </p>
-                {isAdmin && event.diagnostic.available && !diagnostic && (
+                {event.diagnostic.available && !diagnostic && (
                   <button
                     className={styles.secondaryButton}
                     disabled={diagnosticLoading}

@@ -16,7 +16,7 @@ inspect sanitized error diagnostics, export log results, and monitor host and PM
 - **Log explorer:** URL-restorable advanced filtering, adaptive stacked volume
   history, configurable safe-field columns, team saved views, pagination, live
   updates over server-sent events, event detail, and CSV export.
-- **Safe diagnostics:** Sanitized stack and cause details for administrators,
+- **Safe diagnostics:** Sanitized stack and cause details,
   with fingerprint and redaction metadata visible in the log explorer.
 - **Metrics:** Historical host CPU, memory, disk, and network telemetry together
   with allow-listed PM2 process state and admin-only partition, interface, and
@@ -100,11 +100,7 @@ operator. Liveness and readiness are the only public operational endpoints.
 Eligibility requires an enabled, explicit Ops grant in MongoDB. Provision the
 initial administrator with `OPS_SEED_ADMIN_EMAIL=... pnpm seed`; the command is
 idempotent and also seeds the default team log views.
-
-Resolved operators receive either a `viewer` or `admin` Ops role. Administrators
-can manage grants and view available sanitized diagnostics. Authorization must
-be enforced independently on the server; hidden UI controls are not a security
-boundary.
+Resolved operators receive either a `viewer` or `admin` Ops role.
 
 ## Logging and Data Safety
 
@@ -118,11 +114,12 @@ APIs, process-control actions, or broader diagnostic collection.
 
 ## Cross-Repository Contract
 
-`contracts/log-event-v1` is shared by Ops and registered projects. It is intentionally
-dependency-free and must remain compatible across producers and this consumer.
-Do not change the contract independently: contract changes require review and
-fixture agreement in all three repositories. The package is published only from
-tags matching `ops-contract-v<package-version>`.
+`contracts/log-event-v1` is shared by Ops and registered projects. It is
+intentionally dependency-free and must remain compatible across producers and
+this consumer. Do not change the contract independently: contract changes
+require review and fixture agreement in Ops and every registered producer
+repository. The package is published only from tags matching
+`ops-contract-v<package-version>`.
 
 `logger` implements that wire contract. Its releases use independent
 `ops-logger-v<package-version>` tags.

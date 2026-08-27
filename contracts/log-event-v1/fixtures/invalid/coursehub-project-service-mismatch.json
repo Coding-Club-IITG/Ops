@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "eventId": "018f5f65-7b7a-7000-8000-000000000006",
+  "timestamp": "2026-08-26T10:20:30.125Z",
+  "project": "coursehub",
+  "service": "ccw-web",
+  "environment": "production",
+  "kind": "application",
+  "level": "error",
+  "message": "Request failed"
+}

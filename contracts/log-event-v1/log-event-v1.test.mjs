@@ -30,7 +30,7 @@ async function loadFixtures(kind) {
 
 test("all producer acceptance fixtures implement exactly LogEventV1", async () => {
   const fixtures = await loadFixtures("valid");
-  assert.ok(fixtures.length >= 4);
+  assert.ok(fixtures.length >= 5);
 
   for (const fixture of fixtures) {
     const result = validateLogEventV1(fixture.value);
@@ -55,6 +55,18 @@ test("the project registry has unique projects and globally unique services", ()
       (project) => project.name.length > 0 && project.services.length > 0,
     ),
   );
+});
+
+test("CourseHub backend is registered with its PM2 process name", () => {
+  const coursehub = LOG_EVENT_PROJECT_REGISTRY.find(
+    (project) => project.id === "coursehub",
+  );
+
+  assert.deepEqual(coursehub, {
+    id: "coursehub",
+    name: "CourseHub",
+    services: [{ id: "coursehub-backend", name: "Backend" }],
+  });
 });
 
 test("unsafe and contract-divergent fixtures are rejected without coercion", async () => {

@@ -68,7 +68,7 @@
 
 ## UI and Styling
 
-- Match CCW's GitHub-inspired visual language: compact controls, restrained
+- Use a GitHub-inspired visual language: compact controls, restrained
   6px radii, semantic borders, system typography, and clear hover and focus
   states.
 - Use SCSS Modules only. Do not add Tailwind, CSS-in-JS, global utility classes,
@@ -101,9 +101,9 @@
 ## Contract Changes
 
 - Treat `contracts/log-event-v1` as frozen unless a coordinated change has been
-  approved across Ops, CCW, and HABit.
-- Contract changes require fixture agreement in all three repositories and a
-  matching package-version and release-tag plan.
+  approved across Ops and all registered projects.
+- Contract changes require fixture agreement in Ops and every registered
+  producer repository and a matching package-version and release-tag plan.
 - Run `pnpm contract:check` for any approved contract work.
 
 ## Shared Logger Changes

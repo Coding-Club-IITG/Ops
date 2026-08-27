@@ -12,6 +12,11 @@ export const LOG_EVENT_PROJECT_REGISTRY = [
     ],
   },
   {
+    id: "coursehub",
+    name: "CourseHub",
+    services: [{ id: "coursehub-backend", name: "Backend" }],
+  },
+  {
     id: "habit",
     name: "HABit",
     services: [

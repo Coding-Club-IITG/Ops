@@ -1,6 +1,6 @@
 {
   "name": "@coding-club-iitg/ops-logger",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Safe structured logging and Ops telemetry for Coding Club IITG services",
   "type": "module",
   "sideEffects": false,

@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "eventId": "018f5f65-7b7a-7000-8000-000000000005",
+  "timestamp": "2026-08-26T10:19:30.125Z",
+  "project": "coursehub",
+  "service": "coursehub-backend",
+  "environment": "production",
+  "kind": "http",
+  "level": "info",
+  "message": "HTTP request completed",
+  "correlationId": "req_01J65V2JZZ7A4TT01NQ2K8CYF6",
+  "http": {
+    "method": "GET",
+    "route": "/api/search/available",
+    "statusCode": 200,
+    "durationMs": 12.5
+  },
+  "attributes": {
+    "component": "express",
+    "outcome": "success"
+  }
+}

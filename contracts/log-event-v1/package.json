@@ -1,6 +1,6 @@
 {
   "name": "@coding-club-iitg/ops-contract",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Telemetry contracts shared by Coding Club IITG services",
   "type": "module",
   "sideEffects": false,
