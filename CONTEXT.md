@@ -60,6 +60,7 @@ inspect sanitized error diagnostics, export log results, and monitor host and PM
 - `src/worker`: standalone ingestion, metrics, and retention worker
 - `contracts/log-event-v1`: frozen dependency-free cross-repository log event
   contract, package, and fixtures
+- `logger`: versioned producer implementation with core, Express, and Next.js entrypoints
 - `ecosystem.config.js`: PM2 definitions for `ops-web` and `ops-worker`
 
 ## Runtime Boundaries
@@ -117,11 +118,14 @@ APIs, process-control actions, or broader diagnostic collection.
 
 ## Cross-Repository Contract
 
-`contracts/log-event-v1` is shared by Ops, CCW, and HABit. It is intentionally
+`contracts/log-event-v1` is shared by Ops and registered projects. It is intentionally
 dependency-free and must remain compatible across producers and this consumer.
 Do not change the contract independently: contract changes require review and
 fixture agreement in all three repositories. The package is published only from
 tags matching `ops-contract-v<package-version>`.
+
+`logger` implements that wire contract. Its releases use independent
+`ops-logger-v<package-version>` tags.
 
 ## Branches and Deployment
 

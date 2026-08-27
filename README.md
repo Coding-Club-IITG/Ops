@@ -30,7 +30,12 @@ pnpm typecheck
 pnpm test
 pnpm lint
 pnpm build
+pnpm logger:check
 ```
+
+The repository also publishes the frozen `@coding-club-iitg/ops-contract` and
+the independently versioned `@coding-club-iitg/ops-logger` - see each package's
+README for its release and integration contract.
 
 ## Contributing
 

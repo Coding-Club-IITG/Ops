@@ -1,0 +1,74 @@
+{
+  "name": "@coding-club-iitg/ops-logger",
+  "version": "0.1.0",
+  "description": "Safe structured logging and Ops telemetry for Coding Club IITG services",
+  "type": "module",
+  "sideEffects": false,
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Coding-Club-IITG/Ops.git",
+    "directory": "logger"
+  },
+  "homepage": "https://github.com/Coding-Club-IITG/Ops/tree/main/logger",
+  "bugs": "https://github.com/Coding-Club-IITG/Ops/issues",
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./express": {
+      "types": "./dist/express.d.ts",
+      "import": "./dist/express.js",
+      "default": "./dist/express.js"
+    },
+    "./next": {
+      "types": "./dist/next.d.ts",
+      "import": "./dist/next.js",
+      "default": "./dist/next.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
+    "build": "pnpm run clean && tsc -p tsconfig.build.json && esbuild index.ts express.ts next.ts --bundle --platform=node --format=esm --target=node18 --outdir=dist --external:@coding-club-iitg/ops-contract --external:@opentelemetry/api --external:@opentelemetry/sdk-trace-base",
+    "test": "pnpm run build && node --test test/*.test.mjs",
+    "typecheck": "tsc -p tsconfig.build.json --noEmit",
+    "check:pack": "pnpm pack --dry-run",
+    "check": "pnpm run test && pnpm run typecheck && pnpm run check:pack",
+    "prepack": "pnpm run build"
+  },
+  "dependencies": {
+    "@coding-club-iitg/ops-contract": "workspace:^"
+  },
+  "peerDependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/sdk-trace-base": "^2.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@opentelemetry/api": {
+      "optional": true
+    },
+    "@opentelemetry/sdk-trace-base": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/sdk-trace-base": "^2.0.0",
+    "@types/node": "^26.2.0",
+    "esbuild": "^0.28.2",
+    "typescript": "^6.0.3"
+  }
+}

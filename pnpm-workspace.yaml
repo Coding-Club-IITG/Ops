@@ -1,5 +1,6 @@
 packages:
   - "contracts/log-event-v1"
+  - "logger"
 
 allowBuilds:
   "@parcel/watcher": true

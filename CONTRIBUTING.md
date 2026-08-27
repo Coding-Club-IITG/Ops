@@ -106,6 +106,15 @@
   matching package-version and release-tag plan.
 - Run `pnpm contract:check` for any approved contract work.
 
+## Shared Logger Changes
+
+- Keep `logger` compatible with the frozen contract without
+  expanding the wire schema or collecting unsafe request context.
+- Run `pnpm logger:check` for logger changes. The logger is released separately
+  from the contract using `ops-logger-v<package-version>` tags.
+- Do not migrate Ops' own logging to the shared logger; self-ingestion would be
+  recursive.
+
 ## Documentation and Verification
 
 - Update relevant documentation in the same change when setup, architecture,

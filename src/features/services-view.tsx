@@ -139,7 +139,7 @@ function ServiceDetail({ service }: { service: string }) {
           </p>
           <h1 className={styles.heading}>{service}</h1>
           <p className={styles.subheading}>
-            Traffic, errors, latency, and exact-name PM2 saturation.
+            Traffic, errors, latency, and PM2 saturation.
           </p>
         </div>
         <div className={styles.headerActions}>
