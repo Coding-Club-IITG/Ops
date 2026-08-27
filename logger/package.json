@@ -42,6 +42,7 @@
   },
   "scripts": {
     "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
+    "prebuild": "pnpm --filter @coding-club-iitg/ops-contract build",
     "build": "pnpm run clean && tsc -p tsconfig.build.json && esbuild index.ts express.ts next.ts --bundle --platform=node --format=esm --target=node18 --outdir=dist --external:@coding-club-iitg/ops-contract --external:@opentelemetry/api --external:@opentelemetry/sdk-trace-base",
     "test": "pnpm run build && node --test test/*.test.mjs",
     "typecheck": "tsc -p tsconfig.build.json --noEmit",
