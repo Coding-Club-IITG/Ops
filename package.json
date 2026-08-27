@@ -9,7 +9,7 @@
     "contract:check": "pnpm --filter @coding-club-iitg/ops-contract check",
     "build": "next build --webpack",
     "start": "next start -p 3005",
-    "seed": "node --env-file-if-exists=.env.local --import tsx scripts/seed/index.ts",
+    "seed": "node --env-file-if-exists=.env.local --import tsx scripts/seed.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run && pnpm --filter @coding-club-iitg/ops-contract test",
     "lint": "eslint .",

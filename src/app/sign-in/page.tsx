@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { authClient } from "@/lib/auth-client";
-import styles from "@/features/ops/ops.module.scss";
+import styles from "@/features/ops.module.scss";
 
 export default function SignInPage() {
   const [error, setError] = useState<string | null>(null);

@@ -42,6 +42,7 @@ export async function POST(request: Request): Promise<Response> {
     const grant = await upsertOperatorGrant(input, admin.id);
     await writeAuditEvent({
       operatorId: admin.id,
+      operatorEmail: admin.email,
       action: "operators.upsert",
       attributes: {
         targetEmail: grant.email,

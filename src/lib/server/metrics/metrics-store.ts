@@ -2,14 +2,7 @@ import type { Collection } from "mongodb";
 import { getMongoDatabase } from "@/lib/server/mongo";
 import type { MetricSnapshot } from "@/lib/server/metrics/metrics-types";
 import type { MetricsRange } from "@/lib/server/logs/log-query";
-
-const RANGE_MS: Record<MetricsRange, number> = {
-  "1h": 60 * 60 * 1_000,
-  "6h": 6 * 60 * 60 * 1_000,
-  "24h": 24 * 60 * 60 * 1_000,
-  "7d": 7 * 24 * 60 * 60 * 1_000,
-  "30d": 30 * 24 * 60 * 60 * 1_000,
-};
+import { OPS_RANGE_MILLISECONDS } from "@/lib/ops-constants";
 
 async function collection(): Promise<Collection<MetricSnapshot>> {
   return (await getMongoDatabase()).collection<MetricSnapshot>(
@@ -48,7 +41,24 @@ export async function ensureMongoCollections(): Promise<void> {
   await database
     .collection("operator_snapshots")
     .createIndex({ operatorId: 1, capturedAt: -1 });
-  await database.collection("audit_events").createIndex({ occurredAt: -1 });
+  await database
+    .collection("audit_events")
+    .createIndex(
+      { occurredAt: -1, action: 1 },
+      { name: "audit_events_date_action" },
+    );
+  await database
+    .collection("audit_events")
+    .createIndex(
+      { operatorId: 1, occurredAt: -1 },
+      { name: "audit_events_actor_date" },
+    );
+  await database
+    .collection("audit_events")
+    .createIndex(
+      { operatorEmail: 1, occurredAt: -1 },
+      { name: "audit_events_email_date" },
+    );
   await database
     .collection("operator_grants")
     .createIndex(
@@ -76,7 +86,7 @@ export async function addMetricSnapshot(
 export async function getMetricSnapshots(
   range: MetricsRange,
 ): Promise<MetricSnapshot[]> {
-  const since = new Date(Date.now() - RANGE_MS[range]);
+  const since = new Date(Date.now() - OPS_RANGE_MILLISECONDS[range]);
   const rows = await (
     await collection()
   )

@@ -21,6 +21,13 @@ inspect sanitized error diagnostics, export log results, and monitor host and PM
 - **Metrics:** Historical host CPU, memory, disk, and network telemetry together
   with allow-listed PM2 process state and admin-only partition, interface, and
   safe OS-process summaries.
+- **Services:** URL-restorable golden-signal analytics for each registered
+  service, including HTTP traffic, 5xx errors, application errors, latency
+  percentiles, and PM2 saturation.
+- **Correlation timelines:** Chronological retained events that share an exact
+  correlation ID, exposed from the event drawer with a 500-event cap.
+- **Audit:** Administrator-only browsing of immutable operator actions with
+  date, action, and actor filters.
 - **Access management:** Administrator-managed viewer and admin grants.
 - **Operational health:** Public liveness and readiness endpoints for deployment
   infrastructure.
@@ -40,12 +47,13 @@ inspect sanitized error diagnostics, export log results, and monitor host and PM
 
 ## Repository Map
 
-- `src/app/(dashboard)`: authenticated overview, logs, metrics, and operator
+- `src/app/(dashboard)`: authenticated overview, logs, services, metrics, audit, and operator
   pages
 - `src/app/api`: authenticated data APIs, log ingestion, authentication, and
   public health Route Handlers
 - `src/components`: shared React components and their SCSS Modules
-- `src/features/ops`: observability views and focused client-side polling logic
+- `src/features`: observability views, shared feature components, and focused
+  client-side polling logic
 - `src/lib/server`: database connections, authorization, repositories,
   ingestion safety, audit logic, and metric collection
 - `src/types`: client and API view types
@@ -75,6 +83,10 @@ inspect sanitized error diagnostics, export log results, and monitor host and PM
   delivery metadata.
 - Metrics contain host-level measurements and configured PM2 process data. Ops
   exposes no process-control action.
+- Host health is evaluated server-side from fresh metrics with shared CPU,
+  memory, and disk thresholds so Overview and Metrics cannot disagree.
+- Audit events preserve immutable operator IDs and snapshot the operator email
+  when it is available.
 - Theme selection is dark by default and is persisted in a cookie so the server
   renders the selected light or dark theme without a hydration mismatch.
 

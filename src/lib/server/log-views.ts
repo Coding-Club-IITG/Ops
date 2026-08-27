@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { MongoServerError } from "mongodb";
 import { z } from "zod";
+import { OPS_RANGES } from "@/lib/ops-constants";
 import {
   LOG_EVENT_ATTRIBUTE_KEYS,
   LOG_EVENT_KINDS,
@@ -10,7 +11,7 @@ import {
 } from "@contracts/log-event-v1/log-event-v1";
 import { getMongoDatabase } from "@/lib/server/mongo";
 
-export const logRelativeTimeSchema = z.enum(["1h", "6h", "24h", "7d", "30d"]);
+export const logRelativeTimeSchema = z.enum(OPS_RANGES);
 export type LogRelativeTime = z.infer<typeof logRelativeTimeSchema>;
 
 export const BASE_LOG_COLUMNS = [

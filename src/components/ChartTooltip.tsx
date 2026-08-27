@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { TooltipContentProps, TooltipValueType } from "recharts";
+import { CHART_COLORS } from "@/lib/ops-constants";
 import styles from "@/components/chart-tooltip.module.scss";
 
 type ChartTooltipProps = TooltipContentProps & {
@@ -15,6 +16,16 @@ function defaultValue(value: TooltipValueType | undefined): ReactNode {
   if (Array.isArray(value)) return value.join(" – ");
   return value ?? "-";
 }
+
+const SWATCH_CLASSES = {
+  [CHART_COLORS.blue]: styles.swatchBlue,
+  [CHART_COLORS.purple]: styles.swatchPurple,
+  [CHART_COLORS.green]: styles.swatchGreen,
+  [CHART_COLORS.yellow]: styles.swatchYellow,
+  [CHART_COLORS.red]: styles.swatchRed,
+  [CHART_COLORS.gray]: styles.swatchGray,
+  [CHART_COLORS.crimson]: styles.swatchCrimson,
+} as const;
 
 export function ChartTooltip({
   active,
@@ -35,8 +46,7 @@ export function ChartTooltip({
           return (
             <li className={styles.value} key={`${dataKey}:${name}`}>
               <span
-                className={styles.swatch}
-                style={{ backgroundColor: entry.color ?? entry.fill }}
+                className={`${styles.swatch} ${SWATCH_CLASSES[String(entry.color ?? entry.fill) as keyof typeof SWATCH_CLASSES] ?? styles.swatchDefault}`}
                 aria-hidden="true"
               />
               <span className={styles.name}>{name}</span>

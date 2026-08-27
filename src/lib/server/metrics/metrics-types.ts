@@ -37,6 +37,8 @@ export type MetricSnapshot = {
   disk: {
     readsPerSecond: number;
     writesPerSecond: number;
+    readWaitMilliseconds?: number;
+    writeWaitMilliseconds?: number;
     waitMilliseconds?: number;
     totalBytes?: number;
     usedBytes?: number;

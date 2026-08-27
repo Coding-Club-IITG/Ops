@@ -3,6 +3,7 @@ import { getPostgresPool } from "@/lib/server/postgres";
 import type { LogsQuery } from "@/lib/server/logs/log-query";
 import { LOG_EVENT_SERVICE_DEFINITIONS } from "@contracts/log-event-v1/project-registry";
 import type { LogDiagnostic } from "@/lib/server/logs/log-diagnostics";
+import { CORRELATION_TIMELINE_LIMIT } from "@/lib/ops-constants";
 
 export type StoredLogEvent = LogEventV1 & {
   ingestedAt: string;
@@ -121,6 +122,68 @@ export async function listLogs(
       ({ totalCount: _totalCount, ...event }) => event as StoredLogEvent,
     ),
     total: result.rows[0] ? Number(result.rows[0].totalCount) : 0,
+  };
+}
+
+export async function listCorrelationTimeline(
+  correlationId: string,
+): Promise<{ data: LogEventV1[]; total: number; truncated: boolean }> {
+  const result = await getPostgresPool().query<
+    LogEventV1 & { totalCount: string }
+  >(
+    `SELECT
+      event_id AS "eventId",
+      schema_version AS "schemaVersion",
+      occurred_at AS "timestamp",
+      project,
+      service,
+      environment,
+      kind,
+      level,
+      message,
+      correlation_id AS "correlationId",
+      CASE WHEN http_method IS NULL THEN NULL ELSE jsonb_strip_nulls(jsonb_build_object(
+        'method', http_method, 'route', http_route, 'statusCode', http_status_code,
+        'durationMs', http_duration_ms, 'requestBytes', http_request_bytes,
+        'responseBytes', http_response_bytes
+      )) END AS http,
+      CASE WHEN error_name IS NULL AND error_code IS NULL THEN NULL ELSE jsonb_strip_nulls(jsonb_build_object(
+        'name', error_name, 'code', error_code
+      )) END AS error,
+      attributes,
+      COUNT(*) OVER() AS "totalCount"
+     FROM ops.log_events
+     WHERE correlation_id = $1
+       AND occurred_at >= NOW() - INTERVAL '30 days'
+     ORDER BY occurred_at ASC, event_id ASC
+     LIMIT $2`,
+    [correlationId, CORRELATION_TIMELINE_LIMIT],
+  );
+  const total = result.rows[0] ? Number(result.rows[0].totalCount) : 0;
+  return {
+    data: result.rows.map(
+      ({
+        totalCount: _totalCount,
+        timestamp,
+        correlationId,
+        http,
+        error,
+        attributes,
+        ...event
+      }) =>
+        ({
+          ...event,
+          timestamp: new Date(timestamp).toISOString(),
+          ...(correlationId ? { correlationId } : {}),
+          ...(http ? { http } : {}),
+          ...(error ? { error } : {}),
+          ...(attributes && Object.keys(attributes).length
+            ? { attributes }
+            : {}),
+        }) as LogEventV1,
+    ),
+    total,
+    truncated: total > CORRELATION_TIMELINE_LIMIT,
   };
 }
 

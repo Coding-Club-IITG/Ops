@@ -8,6 +8,7 @@ import {
   unauthorizedResponse,
 } from "@/lib/server/authorization";
 import { metricSnapshotForRole } from "@/lib/server/metrics/metrics-visibility";
+import { evaluateHostHealth } from "@/lib/server/metrics/host-health";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +36,7 @@ export async function GET(request: Request): Promise<Response> {
         metrics: metrics ? metricSnapshotForRole(metrics, operator.role) : null,
         metricsStale:
           !lastUpdated || Date.now() - new Date(lastUpdated).getTime() > 60_000,
+        health: evaluateHostHealth(metrics),
       },
       fetchedAt: new Date().toISOString(),
     });

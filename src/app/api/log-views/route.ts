@@ -38,6 +38,7 @@ export async function POST(request: Request): Promise<Response> {
     );
     await writeAuditEvent({
       operatorId: admin.id,
+      operatorEmail: admin.email,
       action: "log_views.create",
       attributes: { viewId: view.id, name: view.name },
     });

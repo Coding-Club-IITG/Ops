@@ -6,6 +6,7 @@ import {
   unauthorizedResponse,
 } from "@/lib/server/authorization";
 import { metricSnapshotForRole } from "@/lib/server/metrics/metrics-visibility";
+import { evaluateHostHealth } from "@/lib/server/metrics/host-health";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,7 @@ export async function GET(request: Request): Promise<Response> {
       lastUpdated,
       stale:
         !lastUpdated || Date.now() - new Date(lastUpdated).getTime() > 60_000,
+      health: evaluateHostHealth(snapshots.at(-1) ?? null),
     });
   } catch (error) {
     if (error instanceof ZodError)

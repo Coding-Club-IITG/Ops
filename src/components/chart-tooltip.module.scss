@@ -40,6 +40,38 @@
   border-radius: 2px;
 }
 
+.swatchDefault {
+  background: var(--muted);
+}
+
+.swatchBlue {
+  background: var(--chart-blue);
+}
+
+.swatchPurple {
+  background: var(--chart-purple);
+}
+
+.swatchGreen {
+  background: var(--chart-green);
+}
+
+.swatchYellow {
+  background: var(--chart-yellow);
+}
+
+.swatchRed {
+  background: var(--chart-red);
+}
+
+.swatchGray {
+  background: var(--chart-gray);
+}
+
+.swatchCrimson {
+  background: var(--chart-crimson);
+}
+
 .name {
   overflow: hidden;
   color: var(--foreground-secondary);

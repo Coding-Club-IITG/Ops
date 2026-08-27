@@ -12,12 +12,20 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Download, RefreshCw, Settings2, ShieldCheck, X } from "lucide-react";
+import {
+  Download,
+  RefreshCw,
+  RotateCcw,
+  Settings2,
+  ShieldCheck,
+  X,
+} from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { StatusBadge, type StatusTone } from "@/components/StatusBadge";
 import { ChartTooltip } from "@/components/ChartTooltip";
 import type {
   LogDiagnostic,
+  CorrelationTimelineResponse,
   LogsQuery,
   LogView,
   LogViewColumn,
@@ -29,18 +37,25 @@ import {
   LOG_EVENT_LEVELS,
 } from "@contracts/log-event-v1/log-event-v1";
 import { LOG_EVENT_PROJECT_REGISTRY } from "@contracts/log-event-v1/project-registry";
-import styles from "@/features/ops/ops.module.scss";
+import {
+  CORRELATION_TIMELINE_LIMIT,
+  DEFAULT_LOGS_RANGE,
+  DEFAULT_PAGE_SIZE,
+  LOG_LEVEL_CHART_COLORS,
+  OPS_RANGES,
+  OPS_RANGE_MILLISECONDS,
+  type OpsRange,
+  isOpsRange,
+} from "@/lib/ops-constants";
+import {
+  formatIndianNumber,
+  formatIst,
+  formatIstInput,
+  parseIstInput,
+} from "@/lib/formatters";
+import styles from "@/features/ops.module.scss";
 
-const PAGE_SIZE = 50;
-const RANGES = ["1h", "6h", "24h", "7d", "30d"] as const;
-type RelativeRange = (typeof RANGES)[number];
-const RANGE_MS: Record<RelativeRange, number> = {
-  "1h": 3_600_000,
-  "6h": 21_600_000,
-  "24h": 86_400_000,
-  "7d": 604_800_000,
-  "30d": 2_592_000_000,
-};
+type RelativeRange = OpsRange;
 const DEFAULT_COLUMNS: LogViewColumn[] = [
   "timestamp",
   "projectService",
@@ -79,43 +94,6 @@ const LEVEL_TONES: Record<StoredLogEvent["level"], StatusTone> = {
   error: "danger",
   fatal: "danger",
 };
-const LEVEL_COLORS = {
-  debug: "#8c959f",
-  info: "#2f81f7",
-  warn: "#d29922",
-  error: "#f85149",
-  fatal: "#a40e26",
-};
-const IST_FORMAT = new Intl.DateTimeFormat("en-IN", {
-  timeZone: "Asia/Kolkata",
-  dateStyle: "medium",
-  timeStyle: "medium",
-});
-
-function isRange(value: string | null): value is RelativeRange {
-  return RANGES.includes(value as RelativeRange);
-}
-function formatIst(value: string): string {
-  return IST_FORMAT.format(new Date(value));
-}
-function toIstInput(value?: string): string {
-  if (!value) return "";
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Kolkata",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(new Date(value));
-  const get = (type: Intl.DateTimeFormatPartTypes) =>
-    parts.find((part) => part.type === type)?.value ?? "";
-  return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}`;
-}
-function fromIstInput(value: string): string | undefined {
-  return value ? new Date(`${value}:00+05:30`).toISOString() : undefined;
-}
 function numberParam(params: URLSearchParams, key: string): number | undefined {
   const value = params.get(key);
   if (!value) return undefined;
@@ -140,7 +118,7 @@ function queryFromParams(params: URLSearchParams): LogsQuery {
     durationMin: numberParam(params, "durationMin"),
     durationMax: numberParam(params, "durationMax"),
     q: params.get("q") ?? undefined,
-    limit: PAGE_SIZE,
+    limit: DEFAULT_PAGE_SIZE,
     offset: numberParam(params, "offset") ?? 0,
     sort: params.get("sort") === "durationMs" ? "durationMs" : "timestamp",
     order: params.get("order") === "asc" ? "asc" : "desc",
@@ -148,12 +126,12 @@ function queryFromParams(params: URLSearchParams): LogsQuery {
 }
 function activeQuery(params: URLSearchParams): LogsQuery {
   const query = queryFromParams(params);
-  const range = params.get("range") ?? "24h";
-  if (!isRange(range)) return query;
+  const range = params.get("range") ?? DEFAULT_LOGS_RANGE;
+  if (!isOpsRange(range)) return query;
   const to = new Date();
   return {
     ...query,
-    from: new Date(to.getTime() - RANGE_MS[range]).toISOString(),
+    from: new Date(to.getTime() - OPS_RANGE_MILLISECONDS[range]).toISOString(),
     to: to.toISOString(),
   };
 }
@@ -211,7 +189,7 @@ export function LogsView() {
   useEffect(() => {
     if (!searchParams.has("range") && !searchParams.has("from")) {
       const next = new URLSearchParams(searchParams.toString());
-      next.set("range", "24h");
+      next.set("range", DEFAULT_LOGS_RANGE);
       replaceParams(next);
     }
   }, [replaceParams, searchParams]);
@@ -289,9 +267,16 @@ export function LogsView() {
     const to = new Date();
     updateParams({
       range: "custom",
-      from: new Date(to.getTime() - 86_400_000).toISOString(),
+      from: new Date(
+        to.getTime() - OPS_RANGE_MILLISECONDS[DEFAULT_LOGS_RANGE],
+      ).toISOString(),
       to: to.toISOString(),
     });
+  };
+  const resetAll = () => {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    setSearchText("");
+    replaceParams(new URLSearchParams({ range: DEFAULT_LOGS_RANGE }));
   };
   const applyView = (id: string) => {
     const view = views.find((candidate) => candidate.id === id);
@@ -387,9 +372,9 @@ export function LogsView() {
     }
   };
 
-  const range = params.get("range") ?? "24h";
-  const page = Math.floor((query.offset ?? 0) / PAGE_SIZE) + 1;
-  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const range = params.get("range") ?? DEFAULT_LOGS_RANGE;
+  const page = Math.floor((query.offset ?? 0) / DEFAULT_PAGE_SIZE) + 1;
+  const pages = Math.max(1, Math.ceil(total / DEFAULT_PAGE_SIZE));
   const exportUrl = useMemo(() => {
     const exportParams = new URLSearchParams();
     Object.entries(query).forEach(([key, value]) => {
@@ -449,31 +434,36 @@ export function LogsView() {
                 ))}
               </select>
             </label>
-            {isAdmin && (
-              <div className={styles.inlineActions}>
-                <button
-                  className={styles.secondaryButton}
-                  disabled={range === "custom"}
-                  onClick={() => void createView()}
-                >
-                  Save as new
-                </button>
-                <button
-                  className={styles.secondaryButton}
-                  disabled={range === "custom" || !params.get("view")}
-                  onClick={() => void updateView()}
-                >
-                  Update view
-                </button>
-                <button
-                  className={styles.secondaryButton}
-                  disabled={!params.get("view")}
-                  onClick={() => void deleteView()}
-                >
-                  Delete
-                </button>
-              </div>
-            )}
+            <div className={styles.inlineActions}>
+              <button className={styles.secondaryButton} onClick={resetAll}>
+                <RotateCcw size={14} /> Reset all
+              </button>
+              {isAdmin && (
+                <>
+                  <button
+                    className={styles.secondaryButton}
+                    disabled={range === "custom"}
+                    onClick={() => void createView()}
+                  >
+                    Save as new
+                  </button>
+                  <button
+                    className={styles.secondaryButton}
+                    disabled={range === "custom" || !params.get("view")}
+                    onClick={() => void updateView()}
+                  >
+                    Update view
+                  </button>
+                  <button
+                    className={styles.secondaryButton}
+                    disabled={!params.get("view")}
+                    onClick={() => void deleteView()}
+                  >
+                    Delete
+                  </button>
+                </>
+              )}
+            </div>
           </div>
           <div className={styles.toolbar}>
             <input
@@ -489,7 +479,7 @@ export function LogsView() {
               value={range}
               onChange={(event) => setRange(event.target.value)}
             >
-              {RANGES.map((option) => (
+              {OPS_RANGES.map((option) => (
                 <option key={option} value={option}>
                   Last {option}
                 </option>
@@ -552,9 +542,9 @@ export function LogsView() {
                 <input
                   className={styles.input}
                   type="datetime-local"
-                  value={toIstInput(query.from)}
+                  value={formatIstInput(query.from)}
                   onChange={(event) =>
-                    updateParams({ from: fromIstInput(event.target.value) })
+                    updateParams({ from: parseIstInput(event.target.value) })
                   }
                 />
               </label>
@@ -563,9 +553,9 @@ export function LogsView() {
                 <input
                   className={styles.input}
                   type="datetime-local"
-                  value={toIstInput(query.to)}
+                  value={formatIstInput(query.to)}
                   onChange={(event) =>
-                    updateParams({ to: fromIstInput(event.target.value) })
+                    updateParams({ to: parseIstInput(event.target.value) })
                   }
                 />
               </label>
@@ -745,14 +735,19 @@ export function LogsView() {
           </div>
           <div className={styles.pagination}>
             <span className={styles.muted}>
-              {total.toLocaleString()} events · page {page} of {pages}
+              {formatIndianNumber(total)} events · page {page} of {pages}
             </span>
             <button
               className={styles.secondaryButton}
               disabled={page <= 1}
               onClick={() =>
                 updateParams(
-                  { offset: Math.max(0, (query.offset ?? 0) - PAGE_SIZE) },
+                  {
+                    offset: Math.max(
+                      0,
+                      (query.offset ?? 0) - DEFAULT_PAGE_SIZE,
+                    ),
+                  },
                   false,
                 )
               }
@@ -763,7 +758,10 @@ export function LogsView() {
               className={styles.secondaryButton}
               disabled={page >= pages}
               onClick={() =>
-                updateParams({ offset: (query.offset ?? 0) + PAGE_SIZE }, false)
+                updateParams(
+                  { offset: (query.offset ?? 0) + DEFAULT_PAGE_SIZE },
+                  false,
+                )
               }
             >
               Next
@@ -905,13 +903,13 @@ function VolumeChart({ volume }: { volume: LogVolumeResponse | null }) {
               />
               <YAxis allowDecimals={false} width={42} />
               <Tooltip
-                cursor={{ fill: "var(--primary-alpha)" }}
+                cursor={false}
                 content={(props) => (
                   <ChartTooltip
                     {...props}
                     formatLabel={(value) => formatIst(String(value))}
                     formatValue={(value) =>
-                      `${Number(value).toLocaleString("en-IN")} events`
+                      `${formatIndianNumber(Number(value))} events`
                     }
                   />
                 )}
@@ -922,7 +920,7 @@ function VolumeChart({ volume }: { volume: LogVolumeResponse | null }) {
                   key={level}
                   dataKey={level}
                   stackId="logs"
-                  fill={LEVEL_COLORS[level]}
+                  fill={LOG_LEVEL_CHART_COLORS[level]}
                   isAnimationActive={false}
                 />
               ))}
@@ -951,6 +949,36 @@ function EventDrawer({
   onDiagnostic: () => void;
   onClose: () => void;
 }) {
+  const [tab, setTab] = useState<"detail" | "timeline">("detail");
+  const [timeline, setTimeline] = useState<CorrelationTimelineResponse | null>(
+    null,
+  );
+  const [timelineLoading, setTimelineLoading] = useState(false);
+  const [timelineError, setTimelineError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setTab("detail");
+    setTimeline(null);
+    setTimelineError(null);
+  }, [event.eventId]);
+
+  const showTimeline = async () => {
+    setTab("timeline");
+    if (!event.correlationId || timeline || timelineLoading) return;
+    setTimelineLoading(true);
+    try {
+      setTimeline(
+        (await apiFetch(
+          `/logs/correlation/${encodeURIComponent(event.correlationId)}`,
+        )) as CorrelationTimelineResponse,
+      );
+      setTimelineError(null);
+    } catch {
+      setTimelineError("The retained correlation timeline is unavailable.");
+    } finally {
+      setTimelineLoading(false);
+    }
+  };
   return (
     <div
       className={styles.drawerBackdrop}
@@ -977,76 +1005,201 @@ function EventDrawer({
             <X size={16} />
           </button>
         </div>
-        <dl className={styles.detailList}>
-          <Detail label="Event ID" value={event.eventId} mono />
-          <Detail label="Schema version" value={event.schemaVersion} />
-          <Detail label="Timestamp (IST)" value={formatIst(event.timestamp)} />
-          <Detail label="Project" value={event.project} />
-          <Detail label="Service" value={event.service} />
-          <Detail label="Environment" value={event.environment} />
-          <Detail label="Kind" value={event.kind} />
-          <Detail label="Level" value={event.level} />
-          <Detail label="Message" value={event.message} />
-          {event.correlationId && (
-            <Detail label="Correlation ID" value={event.correlationId} mono />
-          )}
-          {event.http && (
-            <>
-              <Detail label="HTTP method" value={event.http.method} />
-              <Detail label="Route template" value={event.http.route} mono />
-              <Detail label="Status code" value={event.http.statusCode} />
-              <Detail label="Duration" value={`${event.http.durationMs} ms`} />
+        {event.correlationId && (
+          <div
+            className={styles.drawerTabs}
+            role="tablist"
+            aria-label="Event views"
+          >
+            <button
+              className={tab === "detail" ? styles.activeTab : undefined}
+              role="tab"
+              aria-selected={tab === "detail"}
+              onClick={() => setTab("detail")}
+            >
+              Details
+            </button>
+            <button
+              className={tab === "timeline" ? styles.activeTab : undefined}
+              role="tab"
+              aria-selected={tab === "timeline"}
+              onClick={() => void showTimeline()}
+            >
+              Timeline
+            </button>
+          </div>
+        )}
+        {tab === "detail" ? (
+          <>
+            <dl className={styles.detailList}>
+              <Detail label="Event ID" value={event.eventId} mono />
+              <Detail label="Schema version" value={event.schemaVersion} />
               <Detail
-                label="Request bytes"
-                value={event.http.requestBytes ?? "Not stored"}
+                label="Timestamp (IST)"
+                value={formatIst(event.timestamp)}
               />
+              <Detail label="Project" value={event.project} />
+              <Detail label="Service" value={event.service} />
+              <Detail label="Environment" value={event.environment} />
+              <Detail label="Kind" value={event.kind} />
+              <Detail label="Level" value={event.level} />
+              <Detail label="Message" value={event.message} />
+              {event.correlationId && (
+                <Detail
+                  label="Correlation ID"
+                  value={event.correlationId}
+                  mono
+                />
+              )}
+              {event.http && (
+                <>
+                  <Detail label="HTTP method" value={event.http.method} />
+                  <Detail
+                    label="Route template"
+                    value={event.http.route}
+                    mono
+                  />
+                  <Detail label="Status code" value={event.http.statusCode} />
+                  <Detail
+                    label="Duration"
+                    value={`${event.http.durationMs} ms`}
+                  />
+                  <Detail
+                    label="Request bytes"
+                    value={event.http.requestBytes ?? "Not stored"}
+                  />
+                  <Detail
+                    label="Response bytes"
+                    value={event.http.responseBytes ?? "Not stored"}
+                  />
+                </>
+              )}
+              {event.error?.name && (
+                <Detail label="Error name" value={event.error.name} />
+              )}
+              {event.error?.code && (
+                <Detail label="Error code" value={event.error.code} />
+              )}
               <Detail
-                label="Response bytes"
-                value={event.http.responseBytes ?? "Not stored"}
+                label="Attributes"
+                value={
+                  Object.keys(event.attributes ?? {}).length
+                    ? JSON.stringify(event.attributes, null, 2)
+                    : "None stored"
+                }
+                mono
               />
-            </>
-          )}
-          {event.error?.name && (
-            <Detail label="Error name" value={event.error.name} />
-          )}
-          {event.error?.code && (
-            <Detail label="Error code" value={event.error.code} />
-          )}
-          <Detail
-            label="Attributes"
-            value={
-              Object.keys(event.attributes ?? {}).length
-                ? JSON.stringify(event.attributes, null, 2)
-                : "None stored"
-            }
-            mono
-          />
-        </dl>
-        {event.diagnostic && (
-          <section className={styles.diagnosticDetails}>
-            <strong>Sanitized diagnostic metadata</strong>
-            <p className={styles.mono}>
-              Fingerprint {event.diagnostic.fingerprint}
-            </p>
-            <p>
-              {event.diagnostic.redactionCount} redaction
-              {event.diagnostic.redactionCount === 1 ? "" : "s"}
-            </p>
-            {isAdmin && event.diagnostic.available && !diagnostic && (
-              <button
-                className={styles.secondaryButton}
-                disabled={diagnosticLoading}
-                onClick={onDiagnostic}
-              >
-                <ShieldCheck size={14} />{" "}
-                {diagnosticLoading ? "Loading…" : "View sanitized diagnostics"}
-              </button>
+            </dl>
+            {event.diagnostic && (
+              <section className={styles.diagnosticDetails}>
+                <strong>Sanitized diagnostic metadata</strong>
+                <p className={styles.mono}>
+                  Fingerprint {event.diagnostic.fingerprint}
+                </p>
+                <p>
+                  {event.diagnostic.redactionCount} redaction
+                  {event.diagnostic.redactionCount === 1 ? "" : "s"}
+                </p>
+                {isAdmin && event.diagnostic.available && !diagnostic && (
+                  <button
+                    className={styles.secondaryButton}
+                    disabled={diagnosticLoading}
+                    onClick={onDiagnostic}
+                  >
+                    <ShieldCheck size={14} />{" "}
+                    {diagnosticLoading
+                      ? "Loading…"
+                      : "View sanitized diagnostics"}
+                  </button>
+                )}
+                {diagnostic && <DiagnosticDetails diagnostic={diagnostic} />}
+              </section>
             )}
-            {diagnostic && <DiagnosticDetails diagnostic={diagnostic} />}
-          </section>
+          </>
+        ) : (
+          <CorrelationTimeline
+            openedEventId={event.eventId}
+            timeline={timeline}
+            loading={timelineLoading}
+            error={timelineError}
+          />
         )}
       </aside>
     </div>
+  );
+}
+
+function CorrelationTimeline({
+  openedEventId,
+  timeline,
+  loading,
+  error,
+}: {
+  openedEventId: string;
+  timeline: CorrelationTimelineResponse | null;
+  loading: boolean;
+  error: string | null;
+}) {
+  if (loading)
+    return (
+      <div className={styles.empty}>Loading retained correlation events…</div>
+    );
+  if (error) return <p className={styles.error}>{error}</p>;
+  if (!timeline?.data.length)
+    return (
+      <div className={styles.empty}>
+        No retained events share this correlation ID.
+      </div>
+    );
+  return (
+    <section aria-label="Correlation timeline">
+      {timeline.truncated && (
+        <p className={styles.error}>
+          Showing the first {CORRELATION_TIMELINE_LIMIT} of{" "}
+          {formatIndianNumber(timeline.total)} retained events.
+        </p>
+      )}
+      <ol className={styles.timelineList}>
+        {timeline.data.map((item) => (
+          <li
+            key={item.eventId}
+            className={
+              item.eventId === openedEventId
+                ? styles.timelineCurrent
+                : undefined
+            }
+          >
+            <time dateTime={item.timestamp}>{formatIst(item.timestamp)}</time>
+            <div>
+              <StatusBadge tone={LEVEL_TONES[item.level]}>
+                {item.level}
+              </StatusBadge>{" "}
+              <strong>{item.service}</strong>
+            </div>
+            <p>{item.message}</p>
+            {item.http && (
+              <span className={styles.mono}>
+                {item.http.method} {item.http.route} · {item.http.statusCode} ·{" "}
+                {item.http.durationMs.toFixed(1)} ms
+              </span>
+            )}
+            {item.error && (
+              <span className={styles.mono}>
+                {[item.error.name, item.error.code].filter(Boolean).join(" · ")}
+              </span>
+            )}
+            {Object.keys(item.attributes ?? {}).length > 0 && (
+              <pre className={styles.mono}>
+                {JSON.stringify(item.attributes, null, 2)}
+              </pre>
+            )}
+            {item.eventId === openedEventId && (
+              <span className={styles.muted}>Opened event</span>
+            )}
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
 function Detail({

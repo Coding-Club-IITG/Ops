@@ -21,6 +21,7 @@ export async function GET(
     const { service, ...data } = diagnostic;
     await writeAuditEvent({
       operatorId: admin.id,
+      operatorEmail: admin.email,
       action: "logs.diagnostics.view",
       attributes: { eventId, service },
     });

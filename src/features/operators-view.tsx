@@ -8,7 +8,7 @@ import type {
   OperatorGrantDto,
   OperatorRole,
 } from "@/lib/server/operator-grants";
-import styles from "@/features/ops/ops.module.scss";
+import styles from "@/features/ops.module.scss";
 
 type OperatorsResponse = { data: OperatorGrantDto[] };
 

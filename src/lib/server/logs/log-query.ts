@@ -5,6 +5,11 @@ import {
   LOG_EVENT_PROJECTS,
   LOG_EVENT_SERVICES,
 } from "@contracts/log-event-v1/log-event-v1";
+import {
+  DEFAULT_PAGE_SIZE,
+  OPS_RANGES,
+  type OpsRange,
+} from "@/lib/ops-constants";
 
 const optionalDate = z.string().datetime({ offset: true }).optional();
 
@@ -31,7 +36,7 @@ export const logsQuerySchema = z
     durationMin: z.coerce.number().nonnegative().optional(),
     durationMax: z.coerce.number().nonnegative().optional(),
     q: z.string().trim().min(1).max(256).optional(),
-    limit: z.coerce.number().int().min(1).max(100).default(50),
+    limit: z.coerce.number().int().min(1).max(100).default(DEFAULT_PAGE_SIZE),
     offset: z.coerce.number().int().min(0).max(100_000).default(0),
     sort: z.enum(["timestamp", "durationMs"]).default("timestamp"),
     order: z.enum(["asc", "desc"]).default("desc"),
@@ -79,8 +84,8 @@ export function parseLogsQuery(url: string): LogsQuery {
   return logsQuerySchema.parse(Object.fromEntries(params.entries()));
 }
 
-export const metricsRangeSchema = z.enum(["1h", "6h", "24h", "7d", "30d"]);
-export type MetricsRange = z.infer<typeof metricsRangeSchema>;
+export const metricsRangeSchema = z.enum(OPS_RANGES);
+export type MetricsRange = OpsRange;
 
 export function parseMetricsRange(url: string): MetricsRange {
   return metricsRangeSchema.parse(

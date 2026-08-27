@@ -31,6 +31,7 @@ export async function GET(request: Request): Promise<Response> {
     const filename = `ops-logs-${new Date().toISOString().slice(0, 10)}.csv`;
     await writeAuditEvent({
       operatorId: operator.id,
+      operatorEmail: operator.email,
       action: "logs.export",
       attributes: { rowCount: pages.length, windowHours: 24 },
     });

@@ -11,6 +11,7 @@ import styles from "@/components/layout/navbar.module.scss";
 const navItems = [
   { name: "Overview", href: "/" },
   { name: "Logs", href: "/logs" },
+  { name: "Services", href: "/services" },
   { name: "Metrics", href: "/metrics" },
 ];
 
@@ -22,7 +23,11 @@ export function Navbar({
   const pathname = usePathname();
   const items =
     operator.role === "admin"
-      ? [...navItems, { name: "Users", href: "/operators" }]
+      ? [
+          ...navItems,
+          { name: "Audit", href: "/audit" },
+          { name: "Users", href: "/operators" },
+        ]
       : navItems;
 
   return (

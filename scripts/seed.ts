@@ -17,6 +17,7 @@ async function main(): Promise<void> {
   const defaultViewCount = await seedDefaultLogViews(actorId);
   await writeAuditEvent({
     operatorId: actorId,
+    operatorEmail: email,
     action: "seed.run",
     attributes: { adminGrantUpserted: true, defaultViewCount },
   });

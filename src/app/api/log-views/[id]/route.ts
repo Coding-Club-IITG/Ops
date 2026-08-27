@@ -29,6 +29,7 @@ export async function PATCH(
       return Response.json({ error: "Log view not found" }, { status: 404 });
     await writeAuditEvent({
       operatorId: admin.id,
+      operatorEmail: admin.email,
       action: "log_views.update",
       attributes: { viewId: view.id, name: view.name },
     });
@@ -64,6 +65,7 @@ export async function DELETE(
       return Response.json({ error: "Log view not found" }, { status: 404 });
     await writeAuditEvent({
       operatorId: admin.id,
+      operatorEmail: admin.email,
       action: "log_views.delete",
       attributes: { viewId: id },
     });

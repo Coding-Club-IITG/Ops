@@ -11,6 +11,8 @@ const snapshot: MetricSnapshot = {
   disk: {
     readsPerSecond: 1,
     writesPerSecond: 2,
+    readWaitMilliseconds: 3,
+    writeWaitMilliseconds: 4,
     partitions: [
       {
         mount: "/",
@@ -57,9 +59,28 @@ describe("metric response visibility", () => {
     const viewer = metricSnapshotForRole(snapshot, "viewer");
     expect(viewer).not.toHaveProperty("topProcesses");
     expect(viewer.disk).not.toHaveProperty("partitions");
+    expect(viewer.disk).toMatchObject({
+      readWaitMilliseconds: 3,
+      writeWaitMilliseconds: 4,
+    });
     expect(viewer.network).not.toHaveProperty("interfaces");
     expect(viewer.pm2[0]).toMatchObject({ memoryBytes: 64 * 1_024 * 1_024 });
     expect(viewer.pm2[0]).not.toHaveProperty("memoryMb");
+  });
+
+  it("keeps legacy combined disk-wait snapshots readable", () => {
+    const legacy = {
+      ...snapshot,
+      disk: {
+        ...snapshot.disk,
+        readWaitMilliseconds: undefined,
+        writeWaitMilliseconds: undefined,
+        waitMilliseconds: 7,
+      },
+    };
+    expect(metricSnapshotForRole(legacy, "viewer").disk.waitMilliseconds).toBe(
+      7,
+    );
   });
 
   it("retains restricted fields for admins", () => {

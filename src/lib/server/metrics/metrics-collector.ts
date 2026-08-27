@@ -133,6 +133,8 @@ export async function collectMetricSnapshot(): Promise<MetricSnapshot> {
     disk: {
       readsPerSecond: disk?.rIO_sec ?? 0,
       writesPerSecond: disk?.wIO_sec ?? 0,
+      readWaitMilliseconds: disk?.rWaitTime ?? 0,
+      writeWaitMilliseconds: disk?.wWaitTime ?? 0,
       waitMilliseconds: disk?.tWaitTime ?? 0,
       totalBytes: partitions.reduce(
         (sum, partition) => sum + partition.totalBytes,

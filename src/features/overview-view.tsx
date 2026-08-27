@@ -2,30 +2,22 @@
 
 import { useCallback } from "react";
 import { apiFetch } from "@/lib/api";
-import { StatusBadge, type StatusTone } from "@/components/StatusBadge";
+import { StatusBadge } from "@/components/StatusBadge";
 import type { OverviewData } from "@/types/ops.types";
-import { usePolling } from "@/features/ops/use-polling";
-import styles from "@/features/ops/ops.module.scss";
+import { usePolling } from "@/features/use-polling";
+import { StatCard } from "@/features/stat-card";
+import { SERVICE_STATUS_TONES } from "@/features/status-tones";
+import {
+  formatBytes,
+  formatDuration,
+  formatIndianNumber,
+} from "@/lib/formatters";
+import styles from "@/features/ops.module.scss";
 import { LOG_EVENT_PROJECT_REGISTRY } from "@contracts/log-event-v1/project-registry";
 
 const PROJECT_NAMES = new Map(
   LOG_EVENT_PROJECT_REGISTRY.map((project) => [project.id, project.name]),
 );
-const SERVICE_STATUS_TONES: Record<
-  OverviewData["services"][number]["status"],
-  StatusTone
-> = {
-  healthy: "success",
-  stale: "warning",
-  unknown: "neutral",
-};
-
-function formatNumber(value: number): string {
-  return new Intl.NumberFormat("en-IN").format(value);
-}
-function formatBytes(value: number): string {
-  return `${(value / 1024 ** 3).toFixed(1)} GB`;
-}
 
 export function OverviewView() {
   const load = useCallback(
@@ -65,32 +57,39 @@ export function OverviewView() {
         </p>
       )}
       <section className={styles.grid} aria-busy={loading}>
-        <article className={styles.stat}>
-          <span className={styles.statLabel}>Events · 24h</span>
-          <strong className={styles.statValue}>
-            {data ? formatNumber(data.logsLast24Hours) : "-"}
-          </strong>
-        </article>
-        <article className={styles.stat}>
-          <span className={styles.statLabel}>Errors · 24h</span>
-          <strong className={styles.statValue}>
-            {data ? formatNumber(data.errorsLast24Hours) : "-"}
-          </strong>
-        </article>
-        <article className={styles.stat}>
-          <span className={styles.statLabel}>Error rate</span>
-          <strong className={styles.statValue}>
-            {data ? `${(data.errorRate * 100).toFixed(2)}%` : "-"}
-          </strong>
-        </article>
-        <article className={styles.stat}>
-          <span className={styles.statLabel}>CPU usage</span>
-          <strong className={styles.statValue}>
-            {data?.metrics
-              ? `${data.metrics.cpu.usagePercent.toFixed(1)}%`
-              : "-"}
-          </strong>
-        </article>
+        <div className={`${styles.statGrid} ${styles.overviewStatGrid}`}>
+          <StatCard
+            label="Events · 24h"
+            value={data ? formatIndianNumber(data.logsLast24Hours) : "-"}
+          />
+          <StatCard
+            label="Host uptime"
+            value={
+              data?.metrics ? formatDuration(data.metrics.uptimeSeconds) : "-"
+            }
+          />
+          <StatCard
+            label="Host health"
+            value={data?.health.status ?? "-"}
+            detail={data?.health.reasons.join(" · ") || undefined}
+          />
+          <StatCard
+            label="Errors · 24h"
+            value={data ? formatIndianNumber(data.errorsLast24Hours) : "-"}
+          />
+          <StatCard
+            label="Error rate"
+            value={data ? `${(data.errorRate * 100).toFixed(2)}%` : "-"}
+          />
+          <StatCard
+            label="CPU usage"
+            value={
+              data?.metrics
+                ? `${data.metrics.cpu.usagePercent.toFixed(1)}%`
+                : "-"
+            }
+          />
+        </div>
 
         <article className={styles.panel}>
           <div className={styles.panelHeader}>
@@ -157,7 +156,7 @@ export function OverviewView() {
               label="Network receive"
               value={
                 data?.metrics
-                  ? `${(data.metrics.network.rxBytesPerSecond / 1024).toFixed(1)} KB/s`
+                  ? `${formatBytes(data.metrics.network.rxBytesPerSecond)}/s`
                   : "-"
               }
             />
@@ -165,7 +164,7 @@ export function OverviewView() {
               label="Active connections"
               value={
                 data?.metrics
-                  ? formatNumber(data.metrics.network.activeConnections)
+                  ? formatIndianNumber(data.metrics.network.activeConnections)
                   : "-"
               }
             />

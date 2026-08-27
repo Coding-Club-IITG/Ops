@@ -60,6 +60,11 @@ describe("metric collection degradation", () => {
       errors: 1,
     });
     expect(snapshot.pm2).toEqual([]);
+    expect(snapshot.disk).toMatchObject({
+      readWaitMilliseconds: 0,
+      writeWaitMilliseconds: 0,
+      waitMilliseconds: 0,
+    });
     expect(snapshot.topProcesses?.cpu[0]).toEqual({
       name: "node",
       pid: 42,

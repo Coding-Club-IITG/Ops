@@ -3,6 +3,7 @@ import type {
   LogEventService,
   LogEventV1,
 } from "@contracts/log-event-v1/log-event-v1";
+import type { OpsRange } from "@/types/range";
 
 export type DiagnosticFrame = {
   function?: string;
@@ -73,7 +74,7 @@ export type LogView = {
   id: string;
   name: string;
   description?: string;
-  relativeTime: "1h" | "6h" | "24h" | "7d" | "30d";
+  relativeTime: OpsRange;
   filters: Omit<
     LogsQuery,
     "from" | "to" | "limit" | "offset" | "sort" | "order"
@@ -145,6 +146,8 @@ export type MetricSnapshot = {
   disk: {
     readsPerSecond: number;
     writesPerSecond: number;
+    readWaitMilliseconds?: number;
+    writeWaitMilliseconds?: number;
     waitMilliseconds?: number;
     totalBytes?: number;
     usedBytes?: number;
@@ -183,4 +186,75 @@ export type OverviewData = {
   services: ServiceSummary[];
   metrics: MetricSnapshot | null;
   metricsStale: boolean;
+  health: HostHealth;
+};
+
+export type HostHealthStatus = "Unknown" | "Critical" | "Degraded" | "Optimal";
+export type HostHealth = {
+  status: HostHealthStatus;
+  reasons: string[];
+  evaluatedAt: string;
+  cpuPercent: number | null;
+  memoryPercent: number | null;
+  diskPercent: number | null;
+};
+
+export type ServiceAnalyticsBucket = {
+  timestamp: string;
+  httpCount: number;
+  requestRatePerSecond: number;
+  http5xxCount: number;
+  http5xxRate: number;
+  applicationErrorCount: number;
+  latencyP50Ms: number | null;
+  latencyP95Ms: number | null;
+  latencyP99Ms: number | null;
+};
+
+export type ServiceAnalytics = {
+  service: LogEventService;
+  project: LogEventProject;
+  range: OpsRange;
+  bucketDurationSeconds: number;
+  summary: {
+    httpCount: number;
+    requestRatePerSecond: number;
+    http5xxCount: number;
+    http5xxRate: number;
+    applicationErrorCount: number;
+    latencyP50Ms: number | null;
+    latencyP95Ms: number | null;
+    latencyP99Ms: number | null;
+  };
+  buckets: ServiceAnalyticsBucket[];
+  saturation: Array<{
+    timestamp: string;
+    cpuPercent: number;
+    memoryBytes: number;
+  }>;
+  freshness: {
+    eventsLastSeenAt: string | null;
+    metricsLastSeenAt: string | null;
+    eventsStale: boolean;
+    metricsStale: boolean;
+  };
+  pm2Telemetry: "available" | "partial" | "unavailable";
+  partial: boolean;
+  fetchedAt: string;
+};
+
+export type CorrelationTimelineResponse = {
+  data: LogEventV1[];
+  total: number;
+  truncated: boolean;
+  fetchedAt: string;
+};
+
+export type AuditEvent = {
+  id: string;
+  operatorId: string;
+  operatorEmail?: string;
+  action: string;
+  attributes: Record<string, string | number | boolean>;
+  occurredAt: string;
 };
