@@ -91,7 +91,7 @@ importers:
         specifier: ^4.1.11
         version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.3.0)(vite@8.2.2(@types/node@26.3.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(tsx@4.23.12))
 
-  contracts/log-event-v1:
+  contract:
     devDependencies:
       esbuild:
         specifier: ^0.28.2
@@ -104,7 +104,7 @@ importers:
     dependencies:
       '@coding-club-iitg/ops-contract':
         specifier: workspace:^
-        version: link:../contracts/log-event-v1
+        version: link:../contract
     devDependencies:
       '@opentelemetry/api':
         specifier: ^1.9.0

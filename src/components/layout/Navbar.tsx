@@ -9,11 +9,12 @@ import { authClient } from "@/lib/auth-client";
 import styles from "@/components/layout/navbar.module.scss";
 
 const navItems = [
-  { name: "Overview", href: "/" },
-  { name: "Logs", href: "/logs" },
-  { name: "Services", href: "/services" },
-  { name: "Metrics", href: "/metrics" },
-  { name: "Alerts", href: "/alerts" },
+  { name: "Overview", shortName: "Home", href: "/" },
+  { name: "Infra", shortName: "Infra", href: "/infrastructure" },
+  { name: "Services", shortName: "Svc", href: "/services" },
+  { name: "Logs", shortName: "Logs", href: "/logs" },
+  { name: "Analytics", shortName: "Data", href: "/analytics" },
+  { name: "Alerts", shortName: "Alerts", href: "/alerts" },
 ];
 
 export function Navbar({
@@ -41,7 +42,7 @@ export function Navbar({
         </Link>
         <ThemeToggle />
         <nav className={styles.nav} aria-label="Primary navigation">
-          {items.map(({ name, href }) => {
+          {items.map(({ name, href, ...item }) => {
             const active = pathname === href || pathname.startsWith(href + "/");
 
             return (
@@ -50,7 +51,10 @@ export function Navbar({
                 href={href}
                 className={`${styles.link} ${active ? styles.active : ""}`}
               >
-                {name}
+                <span className={styles.longLabel}>{name}</span>
+                <span className={styles.shortLabel}>
+                  {"shortName" in item ? item.shortName : name}
+                </span>
               </Link>
             );
           })}

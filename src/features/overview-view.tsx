@@ -13,7 +13,7 @@ import {
   formatIndianNumber,
 } from "@/lib/formatters";
 import styles from "@/features/ops.module.scss";
-import { LOG_EVENT_PROJECT_REGISTRY } from "@contracts/log-event-v1/project-registry";
+import { LOG_EVENT_PROJECT_REGISTRY } from "@contract/project-registry";
 
 const PROJECT_NAMES = new Map(
   LOG_EVENT_PROJECT_REGISTRY.map((project) => [project.id, project.name]),

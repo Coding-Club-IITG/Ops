@@ -29,7 +29,7 @@ import styles from "@/features/ops.module.scss";
 
 type ChartValueKind = "percent" | "operations" | "bytes";
 
-export function MetricsView() {
+export function InfrastructureView() {
   const [range, setRange] = useState<OpsRange>(DEFAULT_METRICS_RANGE);
   const load = useCallback(
     async () =>
@@ -81,11 +81,11 @@ export function MetricsView() {
     <main className={styles.page}>
       <div className={styles.headerRow}>
         <div>
-          <p className={styles.eyebrow}>Time series</p>
-          <h1 className={styles.heading}>Host metrics</h1>
+          <p className={styles.eyebrow}>Host telemetry</p>
+          <h1 className={styles.heading}>Infrastructure</h1>
           <p className={styles.subheading}>
-            Read-only aggregate host and PM2 telemetry, along with detailed OS
-            telemetry for admins.
+            Host, PM2, disk, and network telemetry, with detailed OS
+            measurements for admins.
           </p>
         </div>
         <div className={styles.headerActions}>

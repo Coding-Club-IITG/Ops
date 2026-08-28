@@ -142,8 +142,12 @@
 .body button,
 .body input,
 .body select {
-  color: inherit;
   font: inherit;
+}
+
+.body input,
+.body select {
+  color: inherit;
 }
 
 .body button:focus-visible,

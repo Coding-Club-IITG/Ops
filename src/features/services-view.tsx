@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { LOG_EVENT_PROJECT_REGISTRY } from "@contracts/log-event-v1/project-registry";
+import { LOG_EVENT_PROJECT_REGISTRY } from "@contract/project-registry";
 import { StatusBadge } from "@/components/StatusBadge";
 import { usePolling } from "@/features/use-polling";
 import { RangeSelect } from "@/features/range-select";
@@ -50,8 +50,7 @@ function ServiceDirectory() {
           <p className={styles.eyebrow}>Golden signals</p>
           <h1 className={styles.heading}>Services</h1>
           <p className={styles.subheading}>
-            Registered production services with event freshness and read-only
-            analytics.
+            Registered production services with event freshness and analytics.
           </p>
         </div>
       </div>

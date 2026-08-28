@@ -3,7 +3,11 @@ import { setTimeout as delay } from "node:timers/promises";
 import {
   parseLogEventV1,
   LogEventV1ValidationError,
-} from "@contracts/log-event-v1/log-event-v1";
+} from "@contract/log-event-v1";
+import {
+  parseMetricEventV1,
+  MetricEventV1ValidationError,
+} from "@contract/metric-event-v1";
 import { createRedisConnection } from "@/lib/server/redis";
 import { getRuntimeConfig } from "@/lib/server/env";
 import {
@@ -21,6 +25,7 @@ import {
   extractEventPayload,
   getDeliveryCount,
   parseStreamReply,
+  shouldDeadLetter,
   type StreamMessage,
 } from "@/worker/stream-protocol";
 import { ensurePostgresSchema } from "@/lib/server/postgres-schema";
@@ -31,9 +36,15 @@ import { ensureDefaultAlertRules } from "@/lib/server/alerts/alert-rules";
 import { evaluateAlerts } from "@/lib/server/alerts/alert-engine";
 import { deliverDiscordNotifications } from "@/lib/server/alerts/discord";
 import { deleteExpiredAlertHistory } from "@/lib/server/alerts/alert-store";
+import {
+  deleteExpiredMetricEvents,
+  insertMetricEvent,
+  storeMetricDeadLetter,
+} from "@/lib/server/metrics/project-metrics";
 
 const config = getRuntimeConfig();
 const redis = createRedisConnection();
+const metricRedis = createRedisConnection();
 let stopping = false;
 const shutdownController = new AbortController();
 
@@ -44,6 +55,22 @@ async function ensureConsumerGroup(): Promise<void> {
       "CREATE",
       config.LOG_STREAM_KEY,
       config.LOG_CONSUMER_GROUP,
+      "0",
+      "MKSTREAM",
+    ]);
+  } catch (error) {
+    if (!(error instanceof Error) || !error.message.includes("BUSYGROUP"))
+      throw error;
+  }
+}
+
+async function ensureMetricConsumerGroup(): Promise<void> {
+  try {
+    await metricRedis.sendCommand([
+      "XGROUP",
+      "CREATE",
+      config.METRIC_STREAM_KEY,
+      config.METRIC_CONSUMER_GROUP,
       "0",
       "MKSTREAM",
     ]);
@@ -123,7 +150,7 @@ async function processMessage(message: StreamMessage): Promise<void> {
     }
 
     const attempts = await deliveryCount(message.id);
-    if (attempts < 5) return;
+    if (!shouldDeadLetter(attempts)) return;
 
     await storeDeadLetter({
       streamId: message.id,
@@ -139,6 +166,102 @@ async function processMessage(message: StreamMessage): Promise<void> {
 
 async function processBatch(messages: StreamMessage[]): Promise<void> {
   for (const message of messages) await processMessage(message);
+}
+
+async function metricDeliveryCount(streamId: string): Promise<number> {
+  const reply = await metricRedis.sendCommand([
+    "XPENDING",
+    config.METRIC_STREAM_KEY,
+    config.METRIC_CONSUMER_GROUP,
+    streamId,
+    streamId,
+    "1",
+  ]);
+  return getDeliveryCount(reply);
+}
+
+async function finalizeMetricMessage(streamId: string): Promise<void> {
+  await metricRedis
+    .multi()
+    .xAck(config.METRIC_STREAM_KEY, config.METRIC_CONSUMER_GROUP, streamId)
+    .xDel(config.METRIC_STREAM_KEY, streamId)
+    .exec();
+}
+
+async function processMetricMessage(message: StreamMessage): Promise<void> {
+  let rawPayload = "";
+  try {
+    rawPayload = extractEventPayload(message);
+    const event = parseMetricEventV1(JSON.parse(rawPayload));
+    await insertMetricEvent(event);
+    await finalizeMetricMessage(message.id);
+  } catch (error) {
+    const permanent =
+      error instanceof SyntaxError ||
+      error instanceof MetricEventV1ValidationError;
+    if (!permanent) {
+      console.error("Transient metric ingestion failure", {
+        streamId: message.id,
+        error,
+      });
+      return;
+    }
+    const attempts = await metricDeliveryCount(message.id);
+    if (!shouldDeadLetter(attempts)) return;
+    await storeMetricDeadLetter({
+      streamId: message.id,
+      payloadHash: payloadHash(rawPayload),
+      failureCode:
+        error instanceof SyntaxError ? "invalid_json" : "contract_rejected",
+      validationIssues:
+        error instanceof MetricEventV1ValidationError
+          ? error.issues
+          : [{ path: "", message: "Invalid JSON metric event" }],
+      deliveryCount: attempts,
+    });
+    await finalizeMetricMessage(message.id);
+  }
+}
+
+async function processMetricBatch(messages: StreamMessage[]): Promise<void> {
+  for (const message of messages) await processMetricMessage(message);
+}
+
+async function reclaimPendingMetrics(): Promise<void> {
+  const reply = await metricRedis.sendCommand([
+    "XAUTOCLAIM",
+    config.METRIC_STREAM_KEY,
+    config.METRIC_CONSUMER_GROUP,
+    config.METRIC_CONSUMER_NAME,
+    "60000",
+    "0-0",
+    "COUNT",
+    "50",
+  ]);
+  if (!Array.isArray(reply)) return;
+  await processMetricBatch(
+    parseStreamReply([[config.METRIC_STREAM_KEY, reply[1]]]),
+  );
+}
+
+async function metricIngestionLoop(): Promise<void> {
+  while (!stopping) {
+    await reclaimPendingMetrics();
+    const reply = await metricRedis.sendCommand([
+      "XREADGROUP",
+      "GROUP",
+      config.METRIC_CONSUMER_GROUP,
+      config.METRIC_CONSUMER_NAME,
+      "COUNT",
+      "50",
+      "BLOCK",
+      "2000",
+      "STREAMS",
+      config.METRIC_STREAM_KEY,
+      ">",
+    ]);
+    await processMetricBatch(parseStreamReply(reply));
+  }
 }
 
 async function reclaimPending(): Promise<void> {
@@ -198,10 +321,14 @@ async function retentionLoop(): Promise<void> {
       const alertsDeleted = await deleteExpiredAlertHistory(
         config.ALERT_RETENTION_DAYS,
       );
+      const metricsDeleted = await deleteExpiredMetricEvents(
+        config.METRIC_RETENTION_DAYS,
+      );
       console.info("Retention completed", {
         deleted,
         diagnosticsDeleted,
         alertsDeleted,
+        metricsDeleted,
       });
     } catch (error) {
       console.error("Log retention failed", error);
@@ -236,13 +363,16 @@ async function alertLoop(): Promise<void> {
 async function main(): Promise<void> {
   await ensurePostgresSchema();
   await redis.connect();
+  await metricRedis.connect();
   await ensureConsumerGroup();
+  await ensureMetricConsumerGroup();
   await ensureMongoCollections();
   await ensureDefaultAlertRules();
   console.info("ops-worker ready");
   try {
     await Promise.all([
       ingestionLoop(),
+      metricIngestionLoop(),
       metricsLoop(),
       retentionLoop(),
       alertLoop(),
@@ -250,6 +380,7 @@ async function main(): Promise<void> {
   } finally {
     await Promise.allSettled([
       redis.isOpen ? redis.close() : Promise.resolve(),
+      metricRedis.isOpen ? metricRedis.close() : Promise.resolve(),
       getPostgresPool().end(),
       getMongoClient().close(),
     ]);

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import {
   LOG_EVENT_ATTRIBUTE_KEYS,
   LOG_EVENT_LEVELS,
+  parseMetricEventV1,
   parseLogEventV1,
   type LogEventAttributeKey,
   type LogEventAttributeValue,
@@ -9,6 +10,8 @@ import {
   type LogEventProject,
   type LogEventService,
   type LogEventV1,
+  type MetricDimensionValue,
+  type MetricEventV1,
 } from "@coding-club-iitg/ops-contract";
 import { OPS_LOGGER_INTERNAL, type OpsLoggerInternal } from "./internal.js";
 
@@ -27,6 +30,7 @@ export type OpsLoggerConfig = {
   project: LogEventProject;
   service: LogEventService;
   ingestionUrl: string;
+  metricIngestionUrl?: string;
   secret: string;
   enabled: boolean;
   exportLevels?: readonly LogEventLevel[];
@@ -48,6 +52,13 @@ export type OpsLogger = {
   warn(message: string, details?: OpsLogDetails): void;
   error(message: string, details?: OpsLogDetails): void;
   fatal(message: string, details?: OpsLogDetails): void;
+  metric(
+    name: string,
+    details?: {
+      value?: number;
+      dimensions?: Record<string, MetricDimensionValue>;
+    },
+  ): void;
   flush(): Promise<DeliveryStatus>;
   deliveryStatus(): DeliveryStatus;
 };
@@ -72,6 +83,8 @@ const SENSITIVE =
 const ABSOLUTE_PATH =
   /(?:\b[A-Za-z]:\\[^\s:)]+|\/(?:home|Users|private|var|tmp|opt|srv|app)\/[^\s:)]+)/g;
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]*$/;
+const DIAGNOSTIC_CREDENTIAL =
+  /(?:\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b|\b(?:bearer|basic)\s+\S+|\b(?:authorization|cookie|set-cookie|password|passwd|secret|token|api[-_]?key|access[-_]?key|session[-_]?id)\b\s*[:=]\s*[^\s,;]+)/gi;
 
 function bounded(value: unknown, max: number, fallback: string): string {
   let text: string;
@@ -82,6 +95,21 @@ function bounded(value: unknown, max: number, fallback: string): string {
   }
   text = text.replace(SENSITIVE, "[REDACTED]").replace(ABSOLUTE_PATH, "[PATH]");
   text = text.trim();
+  return (text || fallback).slice(0, max);
+}
+
+function boundedDiagnostic(
+  value: unknown,
+  max: number,
+  fallback: string,
+): string {
+  let text: string;
+  try {
+    text = typeof value === "string" ? value : String(value);
+  } catch {
+    text = fallback;
+  }
+  text = text.replace(DIAGNOSTIC_CREDENTIAL, "[REDACTED]").trim();
   return (text || fallback).slice(0, max);
 }
 
@@ -100,25 +128,33 @@ function serializeError(
   if (typeof value !== "object" || value === null) {
     return {
       name: "NonError",
-      message: bounded(value, 1_024, "Unknown error"),
+      message: boundedDiagnostic(value, 1_024, "Unknown error"),
     };
   }
   if (seen.has(value)) return { name: "CircularCause" };
   seen.add(value);
   const source = value as Record<string, unknown>;
   const diagnostic: Diagnostic = {
-    name: bounded(
+    name: boundedDiagnostic(
       source.name,
       128,
       value instanceof Error ? value.name : "Error",
     ),
   };
   if (source.code !== undefined)
-    diagnostic.code = bounded(source.code, 128, "unknown");
+    diagnostic.code = boundedDiagnostic(source.code, 128, "unknown");
   if (source.message !== undefined)
-    diagnostic.message = bounded(source.message, 1_024, "Unknown error");
+    diagnostic.message = boundedDiagnostic(
+      source.message,
+      1_024,
+      "Unknown error",
+    );
   if (source.stack !== undefined)
-    diagnostic.stack = bounded(source.stack, 8_192, "Stack unavailable");
+    diagnostic.stack = boundedDiagnostic(
+      source.stack,
+      8_192,
+      "Stack unavailable",
+    );
   if (source.cause !== undefined)
     diagnostic.cause = serializeError(source.cause, depth + 1, seen);
   return diagnostic;
@@ -158,6 +194,11 @@ function validateConfig(config: OpsLoggerConfig): void {
   }
   if (url.protocol !== "http:" && url.protocol !== "https:")
     throw new TypeError("ingestionUrl must be an HTTP(S) URL");
+  if (config.metricIngestionUrl) {
+    const metricUrl = new URL(config.metricIngestionUrl);
+    if (metricUrl.protocol !== "http:" && metricUrl.protocol !== "https:")
+      throw new TypeError("metricIngestionUrl must be an HTTP(S) URL");
+  }
   if (config.exportLevels?.some((level) => !LEVELS.has(level)))
     throw new TypeError("exportLevels contains an invalid level");
   if (
@@ -194,28 +235,27 @@ export function createOpsLogger(config: OpsLoggerConfig): OpsLogger {
   const maxInFlight = config.maxInFlight ?? 8;
   const pending = new Set<Promise<void>>();
   let dropped = 0;
+  const metricIngestionUrl =
+    config.metricIngestionUrl ?? siblingMetricUrl(config.ingestionUrl);
 
   const status = (): DeliveryStatus =>
     Object.freeze({ pending: pending.size, dropped });
 
-  function deliver(event: LogEventV1, diagnostic?: Diagnostic): void {
-    if (!config.enabled || !exported.has(event.level)) return;
+  function queueDelivery(url: string, body: unknown): void {
+    if (!config.enabled) return;
     if (pending.size >= maxInFlight) {
       dropped += 1;
       return;
     }
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
-    const task = fetch(config.ingestionUrl, {
+    const task = fetch(url, {
       method: "POST",
       headers: {
         authorization: `Bearer ${config.secret}`,
         "content-type": "application/json",
       },
-      body: JSON.stringify({
-        ...event,
-        ...(diagnostic ? { error: diagnostic } : {}),
-      }),
+      body: JSON.stringify(body),
       signal: controller.signal,
     })
       .then(
@@ -231,6 +271,14 @@ export function createOpsLogger(config: OpsLoggerConfig): OpsLogger {
         pending.delete(task);
       });
     pending.add(task);
+  }
+
+  function deliver(event: LogEventV1, diagnostic?: Diagnostic): void {
+    if (!exported.has(event.level)) return;
+    queueDelivery(config.ingestionUrl, {
+      ...event,
+      ...(diagnostic ? { error: diagnostic } : {}),
+    });
   }
 
   function log(
@@ -300,6 +348,23 @@ export function createOpsLogger(config: OpsLoggerConfig): OpsLogger {
     warn: (message, details) => log("warn", message, details),
     error: (message, details) => log("error", message, details),
     fatal: (message, details) => log("fatal", message, details),
+    metric(name, details = {}) {
+      try {
+        const event: MetricEventV1 = parseMetricEventV1({
+          schemaVersion: 1,
+          eventId: randomUUID(),
+          timestamp: new Date().toISOString(),
+          project: config.project,
+          service: config.service,
+          name,
+          value: details.value ?? 1,
+          dimensions: details.dimensions ?? {},
+        });
+        queueDelivery(metricIngestionUrl, event);
+      } catch {
+        dropped += 1;
+      }
+    },
     deliveryStatus: status,
     async flush() {
       await Promise.allSettled([...pending]);
@@ -347,4 +412,19 @@ export function createOpsLogger(config: OpsLoggerConfig): OpsLogger {
   return logger;
 }
 
-export type { LogEventLevel, LogEventProject, LogEventService, LogEventV1 };
+function siblingMetricUrl(logUrl: string): string {
+  const url = new URL(logUrl);
+  url.pathname = url.pathname.endsWith("/logs")
+    ? `${url.pathname.slice(0, -4)}metrics`
+    : `${url.pathname.replace(/\/$/, "")}/metrics`;
+  return url.toString();
+}
+
+export type {
+  LogEventLevel,
+  LogEventProject,
+  LogEventService,
+  LogEventV1,
+  MetricDimensionValue,
+  MetricEventV1,
+};

@@ -51,12 +51,6 @@ const REDACTIONS: RegExp[] = [
   /\b(?:bearer|basic)\s+[^\s,;]+/gi,
   /\b(?:authorization|cookie|set-cookie|password|passwd|secret|token|api[-_]?key|access[-_]?key|session[-_]?id)\b\s*[:=]\s*[^\s,;]+/gi,
   /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g,
-  /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi,
-  /\b(?:\d{1,3}\.){3}\d{1,3}\b/g,
-  /\b(?:[A-F0-9]{1,4}:){2,7}[A-F0-9]{1,4}\b/gi,
-  /https?:\/\/[^\s)]+/gi,
-  /(?:\b[A-Za-z]:\\|\/)(?:Users|home|srv|var|opt|app|workspace|tmp)[\\/][^\s)]+/gi,
-  /\b(?:user|userId|account|accountId|email|phone|name)\b\s*[:=]\s*[^\s,;]+/gi,
 ];
 
 function redact(value: string, counter: { value: number }): string {
@@ -70,19 +64,18 @@ function redact(value: string, counter: { value: number }): string {
   return result;
 }
 
-function relativeFile(file: string, counter: { value: number }): string | null {
+function sourceFile(file: string): string {
   const clean = file.replaceAll("\\", "/").replace(/[?#].*$/, "");
-  if (clean.startsWith("node:") || clean.startsWith("internal/")) return clean;
+  return clean.slice(0, 512);
+}
+
+function fingerprintFile(file: string): string {
+  const clean = sourceFile(file);
   for (const marker of REPOSITORY_MARKERS) {
     const index = clean.lastIndexOf(marker);
-    if (index >= 0) {
-      if (index > 0) counter.value += 1;
-      return clean.slice(index + 1);
-    }
+    if (index >= 0) return clean.slice(index + 1);
   }
-  if (!clean.startsWith("/") && !/^[A-Za-z]:\//.test(clean)) return clean;
-  counter.value += 1;
-  return null;
+  return clean;
 }
 
 function frames(stack: unknown, counter: { value: number }): DiagnosticFrame[] {
@@ -91,8 +84,7 @@ function frames(stack: unknown, counter: { value: number }): DiagnosticFrame[] {
   for (const line of stack.split(/\r?\n/).slice(1)) {
     const match = line.match(V8_FRAME);
     if (!match) continue;
-    const file = relativeFile(match[2], counter);
-    if (!file) continue;
+    const file = sourceFile(match[2]);
     parsed.push({
       ...(match[1]
         ? { function: redact(match[1], counter).slice(0, 256) }
@@ -104,6 +96,18 @@ function frames(stack: unknown, counter: { value: number }): DiagnosticFrame[] {
     if (parsed.length === 50) break;
   }
   return parsed;
+}
+
+function normalizedCause(cause: DiagnosticCause | undefined): unknown {
+  if (!cause) return undefined;
+  return {
+    ...cause,
+    frames: cause.frames.map((frame) => ({
+      ...frame,
+      file: fingerprintFile(frame.file),
+    })),
+    ...(cause.cause ? { cause: normalizedCause(cause.cause) } : {}),
+  };
 }
 
 function optionalText(value: unknown, max: number, counter: { value: number }) {
@@ -166,8 +170,11 @@ export function sanitizeDiagnostic(value: unknown): LogDiagnostic | null {
       name: optionalText(input.name, 128, { value: 0 }) ?? "Error",
       code: optionalText(input.code, 128, { value: 0 }) ?? "",
       message: message.replaceAll("[REDACTED]", "?"),
-      frames: parsedFrames,
-      cause,
+      frames: parsedFrames.map((frame) => ({
+        ...frame,
+        file: fingerprintFile(frame.file),
+      })),
+      cause: normalizedCause(cause),
     });
     return logDiagnosticSchema.parse({
       message,

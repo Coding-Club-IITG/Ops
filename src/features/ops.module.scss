@@ -49,6 +49,56 @@
   min-height: 2.25rem;
 }
 
+.metricSection {
+  margin-bottom: 2.5rem;
+}
+
+.metricExplorerControls {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(10rem, 1fr)) auto;
+  align-items: end;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.dimensionControls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(12rem, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--background-secondary);
+}
+
+.dimensionControl {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.checkLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--foreground-secondary);
+  font-size: 0.75rem;
+}
+
+.projectMetricStatGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 1rem;
+}
+
+.truncationNotice {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+  font-size: 0.8125rem;
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
@@ -600,6 +650,12 @@
   background: var(--btn-primary-bg-hover);
 }
 
+.button:focus-visible,
+.secondaryButton:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
 .button:disabled,
 .secondaryButton:disabled {
   cursor: not-allowed;
@@ -893,6 +949,11 @@
   .coreGrid {
     grid-template-columns: 1fr 1fr;
   }
+
+  .metricExplorerControls,
+  .dimensionControls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 560px) {
@@ -933,7 +994,10 @@
 
   .toolbar,
   .operatorForm,
-  .advancedGrid {
+  .advancedGrid,
+  .metricExplorerControls,
+  .dimensionControls,
+  .projectMetricStatGrid {
     grid-template-columns: 1fr;
   }
 

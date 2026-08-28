@@ -28,6 +28,13 @@ const runtimeConfigSchema = z.object({
   LOG_LIVE_CHANNEL: z.string().min(1).default("ops:logs:live:v1"),
   LOG_CONSUMER_GROUP: z.string().min(1).default("ops-workers-v1"),
   LOG_CONSUMER_NAME: z.string().min(1).default(`ops-worker-${process.pid}`),
+  METRIC_STREAM_KEY: z.string().min(1).default("ops:project-metrics:v1"),
+  METRIC_CONSUMER_GROUP: z.string().min(1).default("ops-metric-workers-v1"),
+  METRIC_CONSUMER_NAME: z
+    .string()
+    .min(1)
+    .default(`ops-metric-worker-${process.pid}`),
+  METRIC_RETENTION_DAYS: z.coerce.number().int().min(90).max(90).default(90),
   DISCORD_ALERT_WEBHOOK_URL: z.preprocess(
     (value) => (value === "" ? undefined : value),
     z.string().url().optional(),

@@ -69,6 +69,34 @@ export async function ensurePostgresSchema(): Promise<void> {
       failed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
+    CREATE TABLE IF NOT EXISTS ops.metric_events (
+      event_id TEXT PRIMARY KEY,
+      schema_version SMALLINT NOT NULL CHECK (schema_version = 1),
+      occurred_at TIMESTAMPTZ NOT NULL,
+      ingested_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      project TEXT NOT NULL,
+      service TEXT NOT NULL,
+      metric_name TEXT NOT NULL CHECK (char_length(metric_name) BETWEEN 1 AND 128),
+      value DOUBLE PRECISION NOT NULL,
+      dimensions JSONB NOT NULL DEFAULT '{}'::jsonb,
+      CHECK (jsonb_typeof(dimensions) = 'object')
+    );
+    CREATE INDEX IF NOT EXISTS metric_events_time_idx
+      ON ops.metric_events (occurred_at DESC);
+    CREATE INDEX IF NOT EXISTS metric_events_catalog_idx
+      ON ops.metric_events (project, service, metric_name, occurred_at DESC);
+    CREATE INDEX IF NOT EXISTS metric_events_dimensions_idx
+      ON ops.metric_events USING GIN (dimensions jsonb_path_ops);
+
+    CREATE TABLE IF NOT EXISTS ops.metric_dead_letters (
+      stream_id TEXT PRIMARY KEY,
+      payload_sha256 TEXT NOT NULL,
+      failure_code TEXT NOT NULL,
+      validation_issues JSONB NOT NULL DEFAULT '[]'::jsonb,
+      delivery_count INTEGER NOT NULL CHECK (delivery_count >= 5),
+      failed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
     CREATE TABLE IF NOT EXISTS ops.alert_rules (
       rule_key TEXT NOT NULL,
       target TEXT NOT NULL,

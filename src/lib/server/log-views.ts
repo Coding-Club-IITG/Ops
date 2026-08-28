@@ -8,7 +8,7 @@ import {
   LOG_EVENT_LEVELS,
   LOG_EVENT_PROJECTS,
   LOG_EVENT_SERVICES,
-} from "@contracts/log-event-v1/log-event-v1";
+} from "@contract/log-event-v1";
 import { getMongoDatabase } from "@/lib/server/mongo";
 
 export const logRelativeTimeSchema = z.enum(OPS_RANGES);

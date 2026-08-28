@@ -10,6 +10,8 @@ import {
   LogEventV1ValidationError,
   isSafeRouteTemplate,
   parseLogEventV1,
+  parseMetricEventV1,
+  validateMetricEventV1,
   validateLogEventV1,
 } from "./dist/index.js";
 
@@ -145,4 +147,48 @@ test("timestamps are real UTC instants, not merely date-shaped strings", () => {
   });
   assert.equal(result.success, false);
   assert.ok(result.issues.some((issue) => issue.path === "timestamp"));
+});
+
+test("metrics accept unknown names and scalar dimensions", () => {
+  const event = parseMetricEventV1({
+    schemaVersion: 1,
+    eventId: "metric-new-1",
+    timestamp: "2026-08-28T10:15:30.000Z",
+    project: "coursehub",
+    service: "coursehub-backend",
+    name: "course.view",
+    value: 1,
+    dimensions: {
+      courseCode: "CS101",
+      studentYear: 2,
+      cached: false,
+      email: "student@example.com",
+      requestPath: "/courses/CS101",
+    },
+  });
+  assert.equal(event.name, "course.view");
+  assert.equal(event.dimensions.studentYear, 2);
+});
+
+test("metrics reject credential dimensions, tokens, malformed values, and mismatched services", () => {
+  const base = {
+    schemaVersion: 1,
+    eventId: "metric-invalid-1",
+    timestamp: "2026-08-28T10:15:30Z",
+    project: "coursehub",
+    service: "ccw-web",
+    name: "course.view",
+    value: Number.POSITIVE_INFINITY,
+    dimensions: {
+      api_key: "ordinary-value",
+      context: "Bearer credential-value",
+      nested: { unsafe: true },
+    },
+  };
+  const result = validateMetricEventV1(base);
+  assert.equal(result.success, false);
+  assert.ok(result.issues.some((issue) => issue.path === "service"));
+  assert.ok(result.issues.some((issue) => issue.path === "value"));
+  assert.ok(result.issues.some((issue) => issue.path === "dimensions.api_key"));
+  assert.ok(result.issues.some((issue) => issue.path === "dimensions.context"));
 });

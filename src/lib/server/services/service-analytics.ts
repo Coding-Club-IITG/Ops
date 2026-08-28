@@ -1,8 +1,5 @@
-import type {
-  LogEventProject,
-  LogEventService,
-} from "@contracts/log-event-v1/log-event-v1";
-import { LOG_EVENT_SERVICE_DEFINITIONS } from "@contracts/log-event-v1/project-registry";
+import type { LogEventProject, LogEventService } from "@contract/log-event-v1";
+import { LOG_EVENT_SERVICE_DEFINITIONS } from "@contract/project-registry";
 import type { MetricsRange } from "@/lib/server/logs/log-query";
 import { selectLogBucketDuration } from "@/lib/server/logs/log-repository";
 import { getMetricSnapshots } from "@/lib/server/metrics/metrics-store";

@@ -11,5 +11,10 @@
     "outDir": "dist",
     "skipLibCheck": true
   },
-  "include": ["index.ts", "log-event-v1.ts", "project-registry.ts"]
+  "include": [
+    "index.ts",
+    "log-event-v1.ts",
+    "metric-event-v1.ts",
+    "project-registry.ts"
+  ]
 }

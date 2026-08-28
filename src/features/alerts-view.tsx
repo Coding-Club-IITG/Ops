@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { LOG_EVENT_SERVICES } from "@contracts/log-event-v1/project-registry";
+import { LOG_EVENT_SERVICES } from "@contract/project-registry";
 import { StatusBadge } from "@/components/StatusBadge";
 import { apiFetch } from "@/lib/api";
 import {

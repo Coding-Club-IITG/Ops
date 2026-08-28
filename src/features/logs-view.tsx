@@ -35,8 +35,8 @@ import type {
 import {
   LOG_EVENT_ATTRIBUTE_KEYS,
   LOG_EVENT_LEVELS,
-} from "@contracts/log-event-v1/log-event-v1";
-import { LOG_EVENT_PROJECT_REGISTRY } from "@contracts/log-event-v1/project-registry";
+} from "@contract/log-event-v1";
+import { LOG_EVENT_PROJECT_REGISTRY } from "@contract/project-registry";
 import {
   CORRELATION_TIMELINE_LIMIT,
   DEFAULT_LOGS_RANGE,
@@ -767,7 +767,7 @@ export function LogsView() {
               Next
             </button>
             <button
-              className={styles.secondaryButton}
+              className={styles.button}
               aria-label="Refresh logs"
               onClick={() => void refresh()}
             >

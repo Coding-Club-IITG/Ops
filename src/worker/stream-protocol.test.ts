@@ -3,6 +3,7 @@ import {
   extractEventPayload,
   getDeliveryCount,
   parseStreamReply,
+  shouldDeadLetter,
 } from "@/worker/stream-protocol";
 
 describe("Redis stream protocol", () => {
@@ -23,5 +24,7 @@ describe("Redis stream protocol", () => {
   it("reads delivery counts and requires the event field", () => {
     expect(getDeliveryCount([["1-0", "consumer", 10, 5]])).toBe(5);
     expect(() => extractEventPayload({ id: "1-0", fields: {} })).toThrow();
+    expect(shouldDeadLetter(4)).toBe(false);
+    expect(shouldDeadLetter(5)).toBe(true);
   });
 });

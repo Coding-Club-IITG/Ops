@@ -29,7 +29,7 @@
 
 - Use strict TypeScript and `import type` for type-only imports. Avoid `any`
   except at unavoidable external-library boundaries.
-- Use `@/` for imports from `src/` and `@contracts/` for the frozen contract.
+- Use `@/` for imports from `src/` and `@contract/` for the shared contract.
 - Keep Route Handlers thin. Move database, storage, query, and policy logic into
   `src/lib/server/`.
 - Use Zod for API query and input validation. Use the dependency-free frozen
@@ -100,7 +100,7 @@
 
 ## Contract Changes
 
-- Treat `contracts/log-event-v1` as frozen unless a coordinated change has been
+- Treat `contract` as frozen unless a coordinated change has been
   approved across Ops and all registered projects.
 - Contract changes require fixture agreement in Ops and every registered
   producer repository and a matching package-version and release-tag plan.

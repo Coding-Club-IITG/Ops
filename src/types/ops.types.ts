@@ -2,8 +2,9 @@ import type {
   LogEventProject,
   LogEventService,
   LogEventV1,
-} from "@contracts/log-event-v1/log-event-v1";
+} from "@contract/log-event-v1";
 import type { OpsRange } from "@/types/range";
+import type { MetricDimensionValue } from "@contract/metric-event-v1";
 
 export type DiagnosticFrame = {
   function?: string;
@@ -177,6 +178,32 @@ export type MetricSnapshot = {
   };
   pm2: Pm2Metric[];
   topProcesses?: { cpu: OsProcessMetric[]; memory: OsProcessMetric[] };
+};
+
+export type ProjectMetricCatalog = {
+  projects: Array<{ project: string; services: string[] }>;
+  metrics: string[];
+  dimensions: Array<{ key: string; values: MetricDimensionValue[] }>;
+};
+
+export type ProjectMetricResult = {
+  range: { from: string; to: string };
+  bucketDurationSeconds: number;
+  totals: { summedValue: number; eventCount: number };
+  groups: Array<{
+    dimensions: Record<string, MetricDimensionValue>;
+    summedValue: number;
+    eventCount: number;
+  }>;
+  series: Array<{
+    timestamp: string;
+    dimensions: Record<string, MetricDimensionValue>;
+    summedValue: number;
+    eventCount: number;
+  }>;
+  chartGroupLimit: 12;
+  groupLimit: 100;
+  truncated: boolean;
 };
 
 export type OverviewData = {

@@ -1,6 +1,6 @@
 {
   "name": "@coding-club-iitg/ops-contract",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Telemetry contracts shared by Coding Club IITG services",
   "type": "module",
   "sideEffects": false,
@@ -8,9 +8,9 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Coding-Club-IITG/Ops.git",
-    "directory": "contracts/log-event-v1"
+    "directory": "contract"
   },
-  "homepage": "https://github.com/Coding-Club-IITG/Ops/tree/main/contracts/log-event-v1",
+  "homepage": "https://github.com/Coding-Club-IITG/Ops/tree/main/contract",
   "bugs": "https://github.com/Coding-Club-IITG/Ops/issues",
   "engines": {
     "node": ">=18"

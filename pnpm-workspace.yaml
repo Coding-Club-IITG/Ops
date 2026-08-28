@@ -1,5 +1,5 @@
 packages:
-  - "contracts/log-event-v1"
+  - "contract"
   - "logger"
 
 allowBuilds:

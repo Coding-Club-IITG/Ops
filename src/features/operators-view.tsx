@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
+import { Save } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { StatusBadge } from "@/components/StatusBadge";
 import type {
@@ -105,7 +106,7 @@ export function OperatorsView({ currentEmail }: { currentEmail: string }) {
               </select>
             </label>
             <button className={styles.button} type="submit" disabled={saving}>
-              {saving ? "Saving…" : "Save user"}
+              <Save size={15} /> {saving ? "Saving…" : "Save user"}
             </button>
           </form>
           {error && (

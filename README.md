@@ -33,6 +33,7 @@ pnpm typecheck
 pnpm test
 pnpm lint
 pnpm build
+pnpm contract:check
 pnpm logger:check
 ```
 

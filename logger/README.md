@@ -23,7 +23,15 @@ logger.error("Mess assignment failed", {
     retryable: false,
   },
 });
+
+logger.metric("course.view", {
+  dimensions: { courseCode: "CS101", studentYear: 2 },
+});
 ```
+
+Metrics default to a value of `1`, are delivered to the sibling metrics ingestion endpoint independently of log export levels,
+and are not printed to the application console.
+Set `metricIngestionUrl` only when the endpoints are not siblings.
 
 Every level is written as safe structured JSON to the console.
 `warn`, `error`, and `fatal` are exported by default (set `exportLevels` explicitly to change this).

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { LOG_EVENT_SERVICES } from "@contracts/log-event-v1/project-registry";
+import { LOG_EVENT_SERVICES } from "@contract/project-registry";
 import { getPostgresPool } from "@/lib/server/postgres";
 import {
   getLatestMetricSnapshot,

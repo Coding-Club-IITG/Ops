@@ -5,20 +5,21 @@ import {
 } from "@/lib/server/logs/log-diagnostics";
 
 describe("log diagnostic sanitization", () => {
-  it("redacts credentials, identity values, IPs, emails, and URLs", () => {
+  it("redacts credentials while preserving useful identity and request context", () => {
     const result = sanitizeDiagnostic({
       message:
         "authorization=Bearer abc token=hunter2 userId=person-42 dev@example.com 10.1.2.3 https://example.test/path?q=secret /home/deploy/private/file.ts",
       stack: "Error\n    at run (/srv/ops/src/jobs/run.ts:12:4)",
     });
     expect(result).not.toBeNull();
-    expect(JSON.stringify(result)).not.toMatch(
-      /abc|hunter2|person-42|dev@example|10\.1\.2\.3|example\.test|\/srv\/ops/,
+    expect(JSON.stringify(result)).not.toMatch(/abc|hunter2/);
+    expect(JSON.stringify(result)).toMatch(
+      /person-42|dev@example|10\.1\.2\.3|example\.test|\/srv\/ops/,
     );
-    expect(result?.redactionCount).toBeGreaterThanOrEqual(6);
+    expect(result?.redactionCount).toBeGreaterThanOrEqual(2);
   });
 
-  it("keeps repository-relative V8 frames and discards unparseable or host-only frames", () => {
+  it("keeps complete source paths and discards only unparseable frames", () => {
     const result = sanitizeDiagnostic({
       message: "failed",
       stack: [
@@ -30,7 +31,18 @@ describe("log diagnostic sanitization", () => {
       ].join("\n"),
     });
     expect(result?.frames).toEqual([
-      { function: "handler", file: "src/api/handler.ts", line: 20, column: 7 },
+      {
+        function: "handler",
+        file: "/home/deploy/app/src/api/handler.ts",
+        line: 20,
+        column: 7,
+      },
+      {
+        function: "external",
+        file: "/home/deploy/vendor/private.js",
+        line: 2,
+        column: 1,
+      },
       { file: "node:internal/process/task_queues", line: 95, column: 5 },
     ]);
   });

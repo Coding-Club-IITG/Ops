@@ -1,5 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
-import { parseLogEventV1 } from "@contracts/log-event-v1/log-event-v1";
+import { parseLogEventV1 } from "@contract/log-event-v1";
 import { z } from "zod";
 import { getRuntimeConfig } from "@/lib/server/env";
 import {

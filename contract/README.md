@@ -1,6 +1,7 @@
 # `@coding-club-iitg/ops-contract`
 
-This package is the frozen, application-independent telemetry wire contract.
+This package contains the dependency-free `LogEventV1` and `MetricEventV1`
+telemetry wire contracts.
 
 ```bash
 npm install @coding-club-iitg/ops-contract
@@ -9,7 +10,9 @@ npm install @coding-club-iitg/ops-contract
 ```ts
 import {
   parseLogEventV1,
+  parseMetricEventV1,
   type LogEventV1,
+  type MetricEventV1,
 } from "@coding-club-iitg/ops-contract";
 ```
 

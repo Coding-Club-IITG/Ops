@@ -36,6 +36,10 @@ export function getDeliveryCount(reply: unknown): number {
   return typeof value === "number" ? value : Number(value) || 1;
 }
 
+export function shouldDeadLetter(deliveryCount: number): boolean {
+  return deliveryCount >= 5;
+}
+
 export function extractEventPayload(message: StreamMessage): string {
   const payload = message.fields.event;
   if (!payload)

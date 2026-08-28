@@ -4,7 +4,7 @@ import {
   LOG_EVENT_LEVELS,
   LOG_EVENT_PROJECTS,
   LOG_EVENT_SERVICES,
-} from "@contracts/log-event-v1/log-event-v1";
+} from "@contract/log-event-v1";
 import {
   DEFAULT_PAGE_SIZE,
   OPS_RANGES,

@@ -1,7 +1,7 @@
-import type { LogEventV1 } from "@contracts/log-event-v1/log-event-v1";
+import type { LogEventV1 } from "@contract/log-event-v1";
 import { getPostgresPool } from "@/lib/server/postgres";
 import type { LogsQuery } from "@/lib/server/logs/log-query";
-import { LOG_EVENT_SERVICE_DEFINITIONS } from "@contracts/log-event-v1/project-registry";
+import { LOG_EVENT_SERVICE_DEFINITIONS } from "@contract/project-registry";
 import type { LogDiagnostic } from "@/lib/server/logs/log-diagnostics";
 import { CORRELATION_TIMELINE_LIMIT } from "@/lib/ops-constants";
 

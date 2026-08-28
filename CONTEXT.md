@@ -18,9 +18,10 @@ inspect sanitized error diagnostics, export log results, and monitor host and PM
   updates over server-sent events, event detail, and CSV export.
 - **Safe diagnostics:** Sanitized stack and cause details,
   with fingerprint and redaction metadata visible in the log explorer.
-- **Metrics:** Historical host CPU, memory, disk, and network telemetry together
-  with allow-listed PM2 process state and admin-only partition, interface, and
-  safe OS-process summaries.
+- **Analytics:** Dynamic project-metric explorer whose catalog is discovered
+  from incoming events.
+- **Infrastructure:** Host CPU, memory, disk, network, PM2, and admin-only OS
+  telemetry.
 - **Services:** URL-restorable golden-signal analytics for each registered
   service, including HTTP traffic, 5xx errors, application errors, latency
   percentiles, and PM2 saturation.
@@ -39,8 +40,9 @@ inspect sanitized error diagnostics, export log results, and monitor host and PM
 
 - Next.js 16 App Router, React 19, and strict TypeScript
 - SCSS Modules and a shared GitHub-derived light/dark color system
-- PostgreSQL for `LogEventV1` events, full-text search, sanitized diagnostics,
-  ingestion dead letters, alert rules, alert state, and the notification outbox
+- PostgreSQL for `LogEventV1` and `MetricEventV1` events, dynamic metric
+  queries, full-text log search, sanitized diagnostics, ingestion dead letters,
+  alert rules, alert state, and the notification outbox
 - Redis Streams for durable ingestion and Redis Pub/Sub for post-commit live
   notifications
 - MongoDB/Atlas for Better Auth, operator grants, audit events, and time-series
@@ -50,8 +52,8 @@ inspect sanitized error diagnostics, export log results, and monitor host and PM
 
 ## Repository Map
 
-- `src/app/(dashboard)`: authenticated overview, logs, services, metrics, audit, and operator
-  pages
+- `src/app/(dashboard)`: authenticated overview, logs, services, project
+  analytics, infrastructure, audit, and operator pages
 - `src/app/api`: authenticated data APIs, log ingestion, authentication, and
   public health Route Handlers
 - `src/components`: shared React components and their SCSS Modules
@@ -61,8 +63,8 @@ inspect sanitized error diagnostics, export log results, and monitor host and PM
   ingestion safety, audit logic, and metric collection
 - `src/types`: client and API view types
 - `src/worker`: standalone ingestion, metrics, and retention worker
-- `contracts/log-event-v1`: frozen dependency-free cross-repository log event
-  contract, package, and fixtures
+- `contract`: dependency-free cross-repository log & metric event contracts,
+  project registry, package, and log fixtures
 - `logger`: versioned producer implementation with core, Express, and Next.js entrypoints
 - `ecosystem.config.js`: PM2 definitions for `ops-web` and `ops-worker`
 
@@ -88,10 +90,11 @@ inspect sanitized error diagnostics, export log results, and monitor host and PM
 - Permanently invalid messages are retried before dead-lettering. Dead letters
   contain only a payload hash, a safe failure code, safe validation issues, and
   delivery metadata.
-- Metrics contain host-level measurements and configured PM2 process data. Ops
-  exposes no process-control action.
+- Host metrics contain host-level measurements and configured PM2 process data.
+  Project metric names and scalar dimensions are discovered at runtime.
+  Ops exposes no process-control action.
 - Host health is evaluated server-side from fresh metrics with shared CPU,
-  memory, and disk thresholds so Overview and Metrics cannot disagree.
+  memory, and disk thresholds so Overview and Infrastructure cannot disagree.
 - Audit events preserve immutable operator IDs and snapshot the operator email
   when it is available.
 - Theme selection is dark by default and is persisted in a cookie so the server
@@ -110,9 +113,13 @@ Resolved operators receive either a `viewer` or `admin` Ops role.
 
 ## Logging and Data Safety
 
-Ops must never capture or store request or response bodies, query values,
-headers, cookies, credentials, IP addresses, user agents, uploads, raw URLs, or
-identity data in application logs. HTTP events store route templates only.
+Ops must never capture request or response bodies, query values, headers,
+cookies, credentials, user agents, or uploads in application logs. HTTP events
+store route templates only. Sanitized error diagnostics preserve useful identity,
+network, URL, request-path, and complete source-path context while redacting
+credentials, authorization values, cookies, API keys, sessions, tokens, and
+secrets. Metric dimensions accept bounded scalar application context but reject
+credential field names and recognizable authentication tokens.
 
 Unknown `LogEventV1` fields are rejected without coercion. Error diagnostics are
 sanitized and size-limited before entering the stream. Do not add log-deletion
@@ -120,11 +127,10 @@ APIs, process-control actions, or broader diagnostic collection.
 
 ## Cross-Repository Contract
 
-`contracts/log-event-v1` is shared by Ops and registered projects. It is
-intentionally dependency-free and must remain compatible across producers and
-this consumer. Do not change the contract independently: contract changes
-require review and fixture agreement in Ops and every registered producer
-repository. The package is published only from tags matching
+`contract` is shared by Ops and registered projects. It is intentionally
+dependency-free and keeps published root imports compatible.
+Contract changes require coordinated producer/consumer review.
+The package is published only from tags matching
 `ops-contract-v<package-version>`.
 
 `logger` implements that wire contract. Its releases use independent

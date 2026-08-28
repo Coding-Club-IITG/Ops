@@ -5,7 +5,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "src"),
-      "@contracts": path.resolve(import.meta.dirname, "contracts"),
+      "@contract": path.resolve(import.meta.dirname, "contract"),
     },
   },
   test: { environment: "node", include: ["src/**/*.test.ts"] },

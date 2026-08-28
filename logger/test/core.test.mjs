@@ -1,7 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createOpsLogger } from "../dist/index.js";
-import { validateLogEventV1 } from "@coding-club-iitg/ops-contract";
+import {
+  validateLogEventV1,
+  validateMetricEventV1,
+} from "@coding-club-iitg/ops-contract";
 
 const config = (overrides = {}) => ({
   project: "ccw",
@@ -42,7 +45,7 @@ test("all levels are local and warn+ are exported by default", async () => {
     assert.equal(validateLogEventV1(event).success, true);
 });
 
-test("serializes, bounds and redacts errors and allow-lists attributes", async () => {
+test("serializes credentials safely while preserving diagnostic context", async () => {
   let body;
   globalThis.fetch = async (_url, init) => {
     body = JSON.parse(init.body);
@@ -73,12 +76,77 @@ test("serializes, bounds and redacts errors and allow-lists attributes", async (
   );
   assert.equal(body.attributes.unsafe, undefined);
   assert.match(JSON.stringify(body), /\[REDACTED\]/);
-  assert.doesNotMatch(
-    JSON.stringify(body),
-    /user@example|supersecret|\/home\/person/,
-  );
+  assert.doesNotMatch(JSON.stringify(body), /supersecret/);
+  assert.match(JSON.stringify(body), /user@example|\/home\/person/);
   assert.equal(body.error.code, "E_FAIL");
   assert.ok(body.error.cause.cause);
+});
+
+test("preserves context for primitive error diagnostics", async () => {
+  let body;
+  globalThis.fetch = async (_url, init) => {
+    body = JSON.parse(init.body);
+    return new Response(null, { status: 202 });
+  };
+  const logger = createOpsLogger(config());
+  logger.error("Operation failed", {
+    error: "user@example.com at /home/person/job.ts token=secret-value",
+  });
+  await logger.flush();
+  assert.match(body.error.message, /user@example\.com|\/home\/person\/job\.ts/);
+  assert.doesNotMatch(body.error.message, /secret-value/);
+});
+
+test("metrics default to one, use their own endpoint, and stay out of the console", async () => {
+  const local = [];
+  const sent = [];
+  globalThis.fetch = async (url, init) => {
+    sent.push({
+      url: String(url),
+      body: JSON.parse(init.body),
+      authorization: init.headers.authorization,
+    });
+    return new Response(null, { status: 202 });
+  };
+  const logger = createOpsLogger(
+    config({
+      console: {
+        debug: (value) => local.push(value),
+        info: (value) => local.push(value),
+        warn: (value) => local.push(value),
+        error: (value) => local.push(value),
+      },
+    }),
+  );
+  logger.metric("course.view", {
+    dimensions: { courseCode: "CS101", studentYear: 2 },
+  });
+  await logger.flush();
+  assert.equal(local.length, 0);
+  assert.equal(sent.length, 1);
+  assert.match(sent[0].url, /\/api\/ingest\/metrics$/);
+  assert.equal(sent[0].body.value, 1);
+  assert.equal(sent[0].authorization, "Bearer test-secret");
+  assert.equal(validateMetricEventV1(sent[0].body).success, true);
+  assert.deepEqual(sent[0].body.dimensions, {
+    courseCode: "CS101",
+    studentYear: 2,
+  });
+});
+
+test("metric delivery respects backpressure and rejects credential dimensions", async () => {
+  let resolve;
+  globalThis.fetch = () =>
+    new Promise((done) => {
+      resolve = done;
+    });
+  const logger = createOpsLogger(config({ maxInFlight: 1 }));
+  logger.metric("course.view");
+  logger.metric("course.view");
+  logger.metric("course.view", { dimensions: { apiKey: "forbidden" } });
+  assert.deepEqual(logger.deliveryStatus(), { pending: 1, dropped: 2 });
+  resolve(new Response(null, { status: 202 }));
+  await logger.flush();
 });
 
 test("disabled mode stays local and delivery failures are counted", async () => {
