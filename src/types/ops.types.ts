@@ -265,6 +265,7 @@ export type AlertRuleKey =
   | "application_errors"
   | "service_silence"
   | "pm2_process_down"
+  | "pm2_restart_loop"
   | "host_cpu"
   | "host_memory"
   | "host_disk"

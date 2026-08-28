@@ -118,3 +118,18 @@ export async function getObservedPm2Names(): Promise<Set<string>> {
     names.filter((name): name is string => typeof name === "string"),
   );
 }
+
+export async function getPm2RestartBaseline(
+  name: string,
+  since: Date,
+): Promise<number | null> {
+  const snapshot = await (
+    await collection()
+  ).findOne(
+    { measuredAt: { $gte: since }, "pm2.name": name },
+    { sort: { measuredAt: 1 }, projection: { _id: 0, pm2: 1 } },
+  );
+  return (
+    snapshot?.pm2.find((process) => process.name === name)?.restartCount ?? null
+  );
+}

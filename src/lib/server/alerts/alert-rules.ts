@@ -15,6 +15,7 @@ const serviceRuleKeys = new Set<AlertRuleKey>([
   "application_errors",
   "service_silence",
   "pm2_process_down",
+  "pm2_restart_loop",
 ]);
 
 export const alertRuleInputSchema = z

@@ -4,6 +4,7 @@ import { getPostgresPool } from "@/lib/server/postgres";
 import {
   getLatestMetricSnapshot,
   getObservedPm2Names,
+  getPm2RestartBaseline,
 } from "@/lib/server/metrics/metrics-store";
 import { effectiveRule, listAlertRules } from "@/lib/server/alerts/alert-rules";
 import {
@@ -41,6 +42,14 @@ export function buildAlertCondition(
     summary,
     value,
   };
+}
+
+export function restartIncrease(
+  current: number | null,
+  baseline: number | null,
+): number | null {
+  if (current === null || baseline === null) return null;
+  return Math.max(0, current - baseline);
 }
 
 async function getServiceSignals(
@@ -128,7 +137,24 @@ export async function collectAlertConditions(
     "application_errors",
     "service_silence",
     "pm2_process_down",
+    "pm2_restart_loop",
   ];
+  const restartBaselines = new Map<string, number | null>(
+    await Promise.all(
+      LOG_EVENT_SERVICES.map(async (service) => {
+        const windowSeconds =
+          effectiveRule(rules, "pm2_restart_loop", service)?.windowSeconds ??
+          300;
+        return [
+          service,
+          await getPm2RestartBaseline(
+            service,
+            new Date(now.getTime() - windowSeconds * 1_000),
+          ),
+        ] as const;
+      }),
+    ),
+  );
   for (const [service, signal] of signals) {
     for (const key of serviceKeys) {
       const base = effectiveRule(rules, key, service);
@@ -158,6 +184,14 @@ export async function collectAlertConditions(
         eligible = observedPm2.has(service);
         const process = metrics?.pm2.find((item) => item.name === service);
         value = !process || process.status !== "online" ? 1 : 0;
+      }
+      if (key === "pm2_restart_loop") {
+        const process = metrics?.pm2.find((item) => item.name === service);
+        value = restartIncrease(
+          process?.restartCount ?? null,
+          restartBaselines.get(service) ?? null,
+        );
+        eligible = observedPm2.has(service) && value !== null;
       }
       output.push({
         rule,

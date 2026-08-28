@@ -26,6 +26,7 @@ const LABELS: Record<AlertRuleKey, string> = {
   application_errors: "Application errors",
   service_silence: "Service silence",
   pm2_process_down: "PM2 process down",
+  pm2_restart_loop: "PM2 restart loop",
   host_cpu: "Host CPU",
   host_memory: "Host memory",
   host_disk: "Host disk",
@@ -37,6 +38,7 @@ const SERVICE_RULES: AlertRuleKey[] = [
   "application_errors",
   "service_silence",
   "pm2_process_down",
+  "pm2_restart_loop",
 ];
 
 function value(rule: AlertRuleKey, input: number | null) {

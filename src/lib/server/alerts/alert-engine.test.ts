@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { buildAlertCondition } from "@/lib/server/alerts/alert-engine";
+import {
+  buildAlertCondition,
+  restartIncrease,
+} from "@/lib/server/alerts/alert-engine";
 import {
   DEFAULT_ALERT_RULES,
   type AlertRule,
@@ -34,7 +37,22 @@ describe("alert thresholds", () => {
   });
 });
 
+describe("PM2 restart loop", () => {
+  it("counts restarts added inside the rule window", () => {
+    expect(restartIncrease(12, 9)).toBe(3);
+  });
+
+  it("is unavailable without both snapshots and ignores counter resets", () => {
+    expect(restartIncrease(12, null)).toBeNull();
+    expect(restartIncrease(1, 12)).toBe(0);
+  });
+});
+
 describe("alert rule configuration", () => {
+  it("disables service silence by default", () => {
+    expect(rule("service_silence").enabled).toBe(false);
+  });
+
   it("prefers a service override to the global default", () => {
     const global = rule("http_5xx_rate");
     const override = { ...global, target: "coursehub-backend", threshold: 10 };
