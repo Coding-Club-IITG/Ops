@@ -51,7 +51,7 @@
     "prepack": "pnpm run build"
   },
   "dependencies": {
-    "@coding-club-iitg/ops-contract": "^0.3.0"
+    "@coding-club-iitg/ops-contract": "workspace:^"
   },
   "peerDependencies": {
     "@opentelemetry/api": "^1.9.0",

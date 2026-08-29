@@ -38,4 +38,4 @@ jobs:
       - run: pnpm logger:check
       - name: Publish with provenance
         working-directory: logger
-        run: npm publish --access public --provenance
+        run: pnpm publish --access public --provenance --no-git-checks
