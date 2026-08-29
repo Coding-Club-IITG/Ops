@@ -1,6 +1,6 @@
 {
   "name": "@coding-club-iitg/ops-logger",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Safe structured logging and Ops telemetry for Coding Club IITG services",
   "type": "module",
   "sideEffects": false,
@@ -51,7 +51,7 @@
     "prepack": "pnpm run build"
   },
   "dependencies": {
-    "@coding-club-iitg/ops-contract": "workspace:^"
+    "@coding-club-iitg/ops-contract": "^0.3.0"
   },
   "peerDependencies": {
     "@opentelemetry/api": "^1.9.0",
