@@ -35,6 +35,23 @@ const runtimeConfigSchema = z.object({
     .min(1)
     .default(`ops-metric-worker-${process.pid}`),
   METRIC_RETENTION_DAYS: z.coerce.number().int().min(90).max(90).default(90),
+  SECURITY_INGEST_SECRET: z
+    .string()
+    .min(32)
+    .default("local-security-ingest-secret-change-me-now"),
+  SECURITY_STREAM_KEY: z.string().min(1).default("ops:security:v1"),
+  SECURITY_CONSUMER_GROUP: z.string().min(1).default("ops-security-workers-v1"),
+  SECURITY_CONSUMER_NAME: z
+    .string()
+    .min(1)
+    .default(`ops-security-worker-${process.pid}`),
+  SECURITY_LIVE_CHANNEL: z.string().min(1).default("ops:security:live:v1"),
+  SECURITY_RETENTION_DAYS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .max(365)
+    .default(90),
   DISCORD_ALERT_WEBHOOK_URL: z.preprocess(
     (value) => (value === "" ? undefined : value),
     z.string().url().optional(),

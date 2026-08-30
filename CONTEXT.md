@@ -21,7 +21,7 @@ inspect sanitized error diagnostics, export log results, and monitor host and PM
 - **Analytics:** Dynamic project-metric explorer whose catalog is discovered
   from incoming events.
 - **Infrastructure:** Host CPU, memory, disk, network, PM2, and admin-only OS
-  telemetry.
+  telemetry and login/session security auditing.
 - **Services:** URL-restorable golden-signal analytics for each registered
   service, including HTTP traffic, 5xx errors, application errors, latency
   percentiles, and PM2 saturation.
@@ -40,9 +40,9 @@ inspect sanitized error diagnostics, export log results, and monitor host and PM
 
 - Next.js 16 App Router, React 19, and strict TypeScript
 - SCSS Modules and a shared GitHub-derived light/dark color system
-- PostgreSQL for `LogEventV1` and `MetricEventV1` events, dynamic metric
-  queries, full-text log search, sanitized diagnostics, ingestion dead letters,
-  alert rules, alert state, and the notification outbox
+- PostgreSQL for `LogEventV1`, `MetricEventV1`, and `SecurityEvent` events, dynamic metric
+  queries, full-text log and security search, sanitized diagnostics, ingestion dead letters,
+  source IP profiles, alert rules, alert state, and the notification outbox
 - Redis Streams for durable ingestion and Redis Pub/Sub for post-commit live
   notifications
 - MongoDB/Atlas for Better Auth, operator grants, audit events, and time-series

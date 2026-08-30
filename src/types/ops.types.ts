@@ -296,7 +296,11 @@ export type AlertRuleKey =
   | "host_cpu"
   | "host_memory"
   | "host_disk"
-  | "metrics_stale";
+  | "metrics_stale"
+  | "security_new_source_ip"
+  | "security_sudo_escalation"
+  | "security_brute_force"
+  | "security_collector_stale";
 export type AlertRule = {
   ruleKey: AlertRuleKey;
   target: string;

@@ -41,10 +41,22 @@ import {
   insertMetricEvent,
   storeMetricDeadLetter,
 } from "@/lib/server/metrics/project-metrics";
+import {
+  deleteExpiredSecurityEvents,
+  insertSecurityEvent,
+  isFirstSeenSourceIp,
+  storeSecurityDeadLetter,
+} from "@/lib/server/security/security-repository";
+import {
+  checkCollectorDeadman,
+  evaluateSecurityAlert,
+} from "@/lib/server/security/security-alerts";
+import type { SecurityEvent } from "@/types/security";
 
 const config = getRuntimeConfig();
 const redis = createRedisConnection();
 const metricRedis = createRedisConnection();
+const securityRedis = createRedisConnection();
 let stopping = false;
 const shutdownController = new AbortController();
 
@@ -71,6 +83,22 @@ async function ensureMetricConsumerGroup(): Promise<void> {
       "CREATE",
       config.METRIC_STREAM_KEY,
       config.METRIC_CONSUMER_GROUP,
+      "0",
+      "MKSTREAM",
+    ]);
+  } catch (error) {
+    if (!(error instanceof Error) || !error.message.includes("BUSYGROUP"))
+      throw error;
+  }
+}
+
+async function ensureSecurityConsumerGroup(): Promise<void> {
+  try {
+    await securityRedis.sendCommand([
+      "XGROUP",
+      "CREATE",
+      config.SECURITY_STREAM_KEY,
+      config.SECURITY_CONSUMER_GROUP,
       "0",
       "MKSTREAM",
     ]);
@@ -264,6 +292,101 @@ async function metricIngestionLoop(): Promise<void> {
   }
 }
 
+async function securityDeliveryCount(streamId: string): Promise<number> {
+  const reply = await securityRedis.sendCommand([
+    "XPENDING",
+    config.SECURITY_STREAM_KEY,
+    config.SECURITY_CONSUMER_GROUP,
+    streamId,
+    streamId,
+    "1",
+  ]);
+  return getDeliveryCount(reply);
+}
+
+async function finalizeSecurityMessage(streamId: string): Promise<void> {
+  await securityRedis
+    .multi()
+    .xAck(config.SECURITY_STREAM_KEY, config.SECURITY_CONSUMER_GROUP, streamId)
+    .xDel(config.SECURITY_STREAM_KEY, streamId)
+    .exec();
+}
+
+async function processSecurityMessage(message: StreamMessage): Promise<void> {
+  let rawPayload = "";
+  try {
+    rawPayload = extractEventPayload(message);
+    const event = JSON.parse(rawPayload) as SecurityEvent;
+    const isFirstSeen = event.sourceIp
+      ? await isFirstSeenSourceIp(event.sourceIp)
+      : false;
+
+    const inserted = await insertSecurityEvent(event);
+    if (inserted) await evaluateSecurityAlert(event, isFirstSeen);
+    await finalizeSecurityMessage(message.id);
+  } catch (error) {
+    const permanent = error instanceof SyntaxError;
+    if (!permanent) {
+      console.error("Transient security ingestion failure", {
+        streamId: message.id,
+        error,
+      });
+      return;
+    }
+    const attempts = await securityDeliveryCount(message.id);
+    if (!shouldDeadLetter(attempts)) return;
+    await storeSecurityDeadLetter({
+      streamId: message.id,
+      payloadHash: payloadHash(rawPayload),
+      failureCode: "invalid_json",
+      validationIssues: [{ path: "", message: "Invalid JSON security event" }],
+      deliveryCount: attempts,
+    });
+    await finalizeSecurityMessage(message.id);
+  }
+}
+
+async function processSecurityBatch(messages: StreamMessage[]): Promise<void> {
+  for (const message of messages) await processSecurityMessage(message);
+}
+
+async function reclaimPendingSecurity(): Promise<void> {
+  const reply = await securityRedis.sendCommand([
+    "XAUTOCLAIM",
+    config.SECURITY_STREAM_KEY,
+    config.SECURITY_CONSUMER_GROUP,
+    config.SECURITY_CONSUMER_NAME,
+    "60000",
+    "0-0",
+    "COUNT",
+    "50",
+  ]);
+  if (!Array.isArray(reply)) return;
+  await processSecurityBatch(
+    parseStreamReply([[config.SECURITY_STREAM_KEY, reply[1]]]),
+  );
+}
+
+async function securityIngestionLoop(): Promise<void> {
+  while (!stopping) {
+    await reclaimPendingSecurity();
+    const reply = await securityRedis.sendCommand([
+      "XREADGROUP",
+      "GROUP",
+      config.SECURITY_CONSUMER_GROUP,
+      config.SECURITY_CONSUMER_NAME,
+      "COUNT",
+      "50",
+      "BLOCK",
+      "2000",
+      "STREAMS",
+      config.SECURITY_STREAM_KEY,
+      ">",
+    ]);
+    await processSecurityBatch(parseStreamReply(reply));
+  }
+}
+
 async function reclaimPending(): Promise<void> {
   const reply = await redis.sendCommand([
     "XAUTOCLAIM",
@@ -324,11 +447,15 @@ async function retentionLoop(): Promise<void> {
       const metricsDeleted = await deleteExpiredMetricEvents(
         config.METRIC_RETENTION_DAYS,
       );
+      const securityDeleted = await deleteExpiredSecurityEvents(
+        config.SECURITY_RETENTION_DAYS,
+      );
       console.info("Retention completed", {
         deleted,
         diagnosticsDeleted,
         alertsDeleted,
         metricsDeleted,
+        securityDeleted,
       });
     } catch (error) {
       console.error("Log retention failed", error);
@@ -345,6 +472,7 @@ async function alertLoop(): Promise<void> {
     try {
       await evaluateAlerts();
       await deliverDiscordNotifications();
+      await checkCollectorDeadman();
     } catch (error) {
       console.error("Alert evaluation failed", error);
     }
@@ -364,8 +492,10 @@ async function main(): Promise<void> {
   await ensurePostgresSchema();
   await redis.connect();
   await metricRedis.connect();
+  await securityRedis.connect();
   await ensureConsumerGroup();
   await ensureMetricConsumerGroup();
+  await ensureSecurityConsumerGroup();
   await ensureMongoCollections();
   await ensureDefaultAlertRules();
   console.info("ops-worker ready");
@@ -373,6 +503,7 @@ async function main(): Promise<void> {
     await Promise.all([
       ingestionLoop(),
       metricIngestionLoop(),
+      securityIngestionLoop(),
       metricsLoop(),
       retentionLoop(),
       alertLoop(),
@@ -381,6 +512,7 @@ async function main(): Promise<void> {
     await Promise.allSettled([
       redis.isOpen ? redis.close() : Promise.resolve(),
       metricRedis.isOpen ? metricRedis.close() : Promise.resolve(),
+      securityRedis.isOpen ? securityRedis.close() : Promise.resolve(),
       getPostgresPool().end(),
       getMongoClient().close(),
     ]);

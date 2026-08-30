@@ -166,5 +166,60 @@ export async function ensurePostgresSchema(): Promise<void> {
     );
     CREATE INDEX IF NOT EXISTS alert_notifications_delivery_idx
       ON ops.alert_notifications (status, next_attempt_at);
+
+    CREATE TABLE IF NOT EXISTS ops.security_events (
+      event_id TEXT PRIMARY KEY,
+      occurred_at TIMESTAMPTZ NOT NULL,
+      ingested_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      event_type TEXT NOT NULL CHECK (event_type IN ('login_success', 'login_failure', 'session_opened', 'session_closed', 'sudo_escalation', 'collector_heartbeat')),
+      account TEXT NOT NULL,
+      source_ip INET,
+      source_port INTEGER,
+      auth_method TEXT,
+      key_type TEXT,
+      key_fingerprint TEXT,
+      subnet_classification TEXT,
+      reverse_dns TEXT,
+      service TEXT,
+      tty TEXT,
+      working_directory TEXT,
+      command TEXT,
+      target_account TEXT,
+      actor TEXT,
+      queue_depth INTEGER,
+      result TEXT NOT NULL CHECK (result IN ('success', 'failure')),
+      summary TEXT NOT NULL,
+      raw_metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+      search_vector TSVECTOR GENERATED ALWAYS AS (
+        to_tsvector('simple', coalesce(account, '') || ' ' || coalesce(host(source_ip), '') || ' ' || coalesce(auth_method, '') || ' ' || coalesce(key_fingerprint, '') || ' ' || coalesce(command, '') || ' ' || coalesce(summary, ''))
+      ) STORED
+    );
+
+    CREATE INDEX IF NOT EXISTS security_events_occurred_at_idx ON ops.security_events (occurred_at DESC);
+    CREATE INDEX IF NOT EXISTS security_events_type_time_idx ON ops.security_events (event_type, occurred_at DESC);
+    CREATE INDEX IF NOT EXISTS security_events_account_time_idx ON ops.security_events (account, occurred_at DESC);
+    CREATE INDEX IF NOT EXISTS security_events_source_ip_time_idx ON ops.security_events (source_ip, occurred_at DESC);
+    CREATE INDEX IF NOT EXISTS security_events_search_idx ON ops.security_events USING GIN (search_vector);
+
+    CREATE TABLE IF NOT EXISTS ops.security_source_ips (
+      source_ip INET PRIMARY KEY,
+      first_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      last_account TEXT NOT NULL,
+      subnet_classification TEXT,
+      reverse_dns TEXT,
+      success_count INTEGER NOT NULL DEFAULT 0,
+      failure_count INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS security_source_ips_last_seen_idx ON ops.security_source_ips (last_seen_at DESC);
+
+    CREATE TABLE IF NOT EXISTS ops.security_dead_letters (
+      stream_id TEXT PRIMARY KEY,
+      payload_sha256 TEXT NOT NULL,
+      failure_code TEXT NOT NULL,
+      validation_issues JSONB NOT NULL DEFAULT '[]'::jsonb,
+      delivery_count INTEGER NOT NULL CHECK (delivery_count >= 5),
+      failed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
   `);
 }

@@ -9,6 +9,10 @@ export const ALERT_RULE_KEYS = [
   "host_memory",
   "host_disk",
   "metrics_stale",
+  "security_new_source_ip",
+  "security_sudo_escalation",
+  "security_brute_force",
+  "security_collector_stale",
 ] as const;
 
 export type AlertRuleKey = (typeof ALERT_RULE_KEYS)[number];
@@ -165,4 +169,8 @@ export const ALERT_RULE_LABELS: Record<AlertRuleKey, string> = {
   host_memory: "Host memory",
   host_disk: "Host disk",
   metrics_stale: "Metrics stale",
+  security_new_source_ip: "New login source IP",
+  security_sudo_escalation: "Sudo escalation",
+  security_brute_force: "SSH brute force",
+  security_collector_stale: "Security collector stale",
 };

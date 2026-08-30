@@ -13,6 +13,7 @@ import { RangeSelect } from "@/features/range-select";
 import { StatCard } from "@/features/stat-card";
 import { TimeSeriesPanel } from "@/features/time-series-panel";
 import { HOST_HEALTH_TONES, processStatusTone } from "@/features/status-tones";
+import { AdminSecuritySection } from "@/features/security-view";
 import {
   formatBytes,
   formatCompactBytes,
@@ -351,6 +352,7 @@ export function InfrastructureView() {
             />
           </>
         )}
+        {isAdmin && <AdminSecuritySection />}
       </section>
     </main>
   );

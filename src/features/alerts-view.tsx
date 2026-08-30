@@ -31,6 +31,10 @@ const LABELS: Record<AlertRuleKey, string> = {
   host_memory: "Host memory",
   host_disk: "Host disk",
   metrics_stale: "Metrics stale",
+  security_new_source_ip: "New login source IP",
+  security_sudo_escalation: "Sudo escalation",
+  security_brute_force: "SSH brute force",
+  security_collector_stale: "Security collector stale",
 };
 const SERVICE_RULES: AlertRuleKey[] = [
   "http_5xx_rate",
