@@ -23,6 +23,7 @@ import {
 import { apiFetch } from "@/lib/api";
 import { StatusBadge, type StatusTone } from "@/components/StatusBadge";
 import { ChartTooltip } from "@/components/ChartTooltip";
+import { Pagination } from "@/components/Pagination";
 import type {
   LogDiagnostic,
   CorrelationTimelineResponse,
@@ -733,39 +734,26 @@ export function LogsView() {
               <div className={styles.empty}>Loading production events…</div>
             )}
           </div>
-          <div className={styles.pagination}>
-            <span className={styles.muted}>
-              {formatIndianNumber(total)} events · page {page} of {pages}
-            </span>
-            <button
-              className={styles.secondaryButton}
-              disabled={page <= 1}
-              onClick={() =>
-                updateParams(
-                  {
-                    offset: Math.max(
-                      0,
-                      (query.offset ?? 0) - DEFAULT_PAGE_SIZE,
-                    ),
-                  },
-                  false,
-                )
-              }
-            >
-              Previous
-            </button>
-            <button
-              className={styles.secondaryButton}
-              disabled={page >= pages}
-              onClick={() =>
-                updateParams(
-                  { offset: (query.offset ?? 0) + DEFAULT_PAGE_SIZE },
-                  false,
-                )
-              }
-            >
-              Next
-            </button>
+          <Pagination
+            total={total}
+            noun="events"
+            page={page}
+            pages={pages}
+            onPrevious={() =>
+              updateParams(
+                {
+                  offset: Math.max(0, (query.offset ?? 0) - DEFAULT_PAGE_SIZE),
+                },
+                false,
+              )
+            }
+            onNext={() =>
+              updateParams(
+                { offset: (query.offset ?? 0) + DEFAULT_PAGE_SIZE },
+                false,
+              )
+            }
+          >
             <button
               className={styles.button}
               aria-label="Refresh logs"
@@ -773,7 +761,7 @@ export function LogsView() {
             >
               <RefreshCw size={15} />
             </button>
-          </div>
+          </Pagination>
         </div>
       </section>
       {selected && (

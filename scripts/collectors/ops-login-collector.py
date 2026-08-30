@@ -17,6 +17,7 @@ import ssl
 import signal
 import hashlib
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 DEFAULT_AUTH_LOG = os.environ.get("OPS_AUTH_LOG_PATH", "/var/log/auth.log")
 STATE_DIR = (
@@ -32,6 +33,7 @@ DEFAULT_INGEST_URL = os.environ.get(
 HEARTBEAT_INTERVAL = int(os.environ.get("OPS_HEARTBEAT_INTERVAL", "60"))
 BATCH_SIZE = int(os.environ.get("OPS_BATCH_SIZE", "50"))
 MAX_RETRIES = 10
+AUTH_LOG_TIMEZONE = ZoneInfo(os.environ.get("OPS_AUTH_LOG_TIMEZONE", "Asia/Kolkata"))
 
 HOSTNAME = socket.gethostname()
 
@@ -47,32 +49,11 @@ def get_boot_id() -> str:
 BOOT_ID = get_boot_id()
 
 
-def load_ingest_secret() -> str:
-    secret = os.environ.get("OPS_SECURITY_INGEST_SECRET") or os.environ.get("SECURITY_INGEST_SECRET")
-    if secret:
-        return secret.strip().strip('"').strip("'")
-
-    env_paths = [
-        "/etc/ops/security.env",
-        "/home/cc/Projects/infra/env/ops.env",
-        os.path.join(os.path.dirname(__file__), "../../env/ops.env"),
-    ]
-    for path in env_paths:
-        if os.path.isfile(path):
-            try:
-                with open(path, "r") as f:
-                    for line in f:
-                        line = line.strip()
-                        if line.startswith("SECURITY_INGEST_SECRET="):
-                            val = line.split("=", 1)[1].strip().strip('"').strip("'")
-                            if val:
-                                return val
-            except Exception:
-                continue
-    return ""
-
-
-INGEST_SECRET = load_ingest_secret()
+INGEST_SECRET = (
+    os.environ.get("OPS_SECURITY_INGEST_SECRET")
+    or os.environ.get("SECURITY_INGEST_SECRET")
+    or ""
+).strip()
 
 
 def classify_subnet(ip: str) -> str:
@@ -239,20 +220,22 @@ class AuthLogParser:
             iso_str = iso_match.group("iso")
             try:
                 dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
-                return dt.astimezone(timezone.utc), dt.isoformat()
+                utc_dt = dt.astimezone(timezone.utc)
+                return utc_dt, utc_dt.isoformat()
             except Exception:
                 pass
 
         syslog_match = cls.RE_SYSLOG_DATE.match(line)
         if syslog_match:
             try:
-                now = datetime.now(timezone.utc)
+                now = datetime.now(AUTH_LOG_TIMEZONE)
                 month_str = syslog_match.group("month")
                 day = int(syslog_match.group("day"))
                 time_str = syslog_match.group("time")
                 parsed_dt = datetime.strptime(f"{now.year} {month_str} {day} {time_str}", "%Y %b %d %H:%M:%S")
-                parsed_dt = parsed_dt.replace(tzinfo=timezone.utc)
-                return parsed_dt, parsed_dt.isoformat()
+                parsed_dt = parsed_dt.replace(tzinfo=AUTH_LOG_TIMEZONE)
+                utc_dt = parsed_dt.astimezone(timezone.utc)
+                return utc_dt, utc_dt.isoformat()
             except Exception:
                 pass
 
@@ -479,6 +462,9 @@ class IngestionClient:
 
 
 def run():
+    if not INGEST_SECRET:
+        raise RuntimeError("SECURITY_INGEST_SECRET is required")
+
     print(f"Starting ops-login-collector on {HOSTNAME}")
     print(f"Auth log path: {DEFAULT_AUTH_LOG}")
     print(f"Spool DB: {SPOOL_DB_PATH}")

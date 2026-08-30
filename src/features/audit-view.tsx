@@ -4,12 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AUDIT_ACTIONS } from "@/types/audit";
 import { apiFetch } from "@/lib/api";
-import {
-  formatIndianNumber,
-  formatIst,
-  formatIstInput,
-  parseIstInput,
-} from "@/lib/formatters";
+import { Pagination } from "@/components/Pagination";
+import { formatIst, formatIstInput, parseIstInput } from "@/lib/formatters";
 import { DEFAULT_PAGE_SIZE } from "@/lib/ops-constants";
 import type { AuditEvent } from "@/types/ops.types";
 import styles from "@/features/ops.module.scss";
@@ -182,34 +178,21 @@ export function AuditView() {
               <div className={styles.empty}>Loading audit events…</div>
             )}
           </div>
-          <div className={styles.pagination}>
-            <span className={styles.muted}>
-              {formatIndianNumber(total)} events · page {page} of {pages}
-            </span>
-            <button
-              className={styles.secondaryButton}
-              disabled={page <= 1}
-              onClick={() =>
-                replace(
-                  {
-                    offset: String(Math.max(0, offset - DEFAULT_PAGE_SIZE)),
-                  },
-                  false,
-                )
-              }
-            >
-              Previous
-            </button>
-            <button
-              className={styles.secondaryButton}
-              disabled={page >= pages}
-              onClick={() =>
-                replace({ offset: String(offset + DEFAULT_PAGE_SIZE) }, false)
-              }
-            >
-              Next
-            </button>
-          </div>
+          <Pagination
+            total={total}
+            noun="events"
+            page={page}
+            pages={pages}
+            onPrevious={() =>
+              replace(
+                { offset: String(Math.max(0, offset - DEFAULT_PAGE_SIZE)) },
+                false,
+              )
+            }
+            onNext={() =>
+              replace({ offset: String(offset + DEFAULT_PAGE_SIZE) }, false)
+            }
+          />
         </div>
       </section>
     </main>

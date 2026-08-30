@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { LOG_EVENT_SERVICES } from "@contract/project-registry";
 import { StatusBadge } from "@/components/StatusBadge";
+import { Pagination } from "@/components/Pagination";
 import { apiFetch } from "@/lib/api";
 import {
   formatIndianNumber,
@@ -351,32 +352,21 @@ export function AlertsView({ admin }: { admin: boolean }) {
               <div className={styles.empty}>Loading alerts…</div>
             )}
           </div>
-          <div className={styles.pagination}>
-            <span className={styles.muted}>
-              {formatIndianNumber(total)} alerts · page {page} of {pages}
-            </span>
-            <button
-              className={styles.secondaryButton}
-              disabled={page <= 1}
-              onClick={() =>
-                replace(
-                  { offset: String(Math.max(0, offset - DEFAULT_PAGE_SIZE)) },
-                  false,
-                )
-              }
-            >
-              Previous
-            </button>
-            <button
-              className={styles.secondaryButton}
-              disabled={page >= pages}
-              onClick={() =>
-                replace({ offset: String(offset + DEFAULT_PAGE_SIZE) }, false)
-              }
-            >
-              Next
-            </button>
-          </div>
+          <Pagination
+            total={total}
+            noun="alerts"
+            page={page}
+            pages={pages}
+            onPrevious={() =>
+              replace(
+                { offset: String(Math.max(0, offset - DEFAULT_PAGE_SIZE)) },
+                false,
+              )
+            }
+            onNext={() =>
+              replace({ offset: String(offset + DEFAULT_PAGE_SIZE) }, false)
+            }
+          />
         </div>
       </section>
       <RulesPanel rules={rules} admin={admin} act={act} />

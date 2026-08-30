@@ -330,12 +330,7 @@ export type AlertInstance = {
   lastEvaluatedAt: string;
   lastNotificationAt: string | null;
   lastDeliveryStatus:
-    | "pending"
-    | "sending"
-    | "sent"
-    | "failed"
-    | "suppressed"
-    | null;
+    "pending" | "sending" | "sent" | "failed" | "suppressed" | null;
 };
 export type AlertMute = {
   target: string;

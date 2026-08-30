@@ -123,6 +123,10 @@
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
+.securityStatGrid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .stat,
 .panel {
   border: 1px solid var(--card-border);
@@ -916,7 +920,8 @@
 
 @media (max-width: 900px) {
   .overviewStatGrid,
-  .metricsStatGrid {
+  .metricsStatGrid,
+  .securityStatGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -958,7 +963,8 @@
 
 @media (max-width: 560px) {
   .overviewStatGrid,
-  .metricsStatGrid {
+  .metricsStatGrid,
+  .securityStatGrid {
     grid-template-columns: 1fr;
   }
 

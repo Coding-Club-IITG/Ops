@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { StatusBadge } from "@/components/StatusBadge";
+import { Pagination } from "@/components/Pagination";
+import { StatCard } from "@/features/stat-card";
+import { X } from "lucide-react";
 import {
   formatIndianNumber,
   formatIst,
@@ -207,33 +210,27 @@ export function AdminSecuritySection() {
       </section>
 
       {/* Stat Cards */}
-      <div className={secStyles.statsGrid}>
-        <div className={secStyles.statCard}>
-          <p className={secStyles.statLabel}>Logins (24h)</p>
-          <p className={secStyles.statValue}>
-            {formatIndianNumber(stats?.totalLogins24h ?? 0)}
-          </p>
-        </div>
-        <div className={secStyles.statCard}>
-          <p className={secStyles.statLabel}>Unique Source IPs</p>
-          <p className={secStyles.statValue}>
-            {formatIndianNumber(stats?.uniqueIps24h ?? 0)}
-          </p>
-        </div>
-        <div className={secStyles.statCard}>
-          <p className={secStyles.statLabel}>Sudo Escalations</p>
-          <p className={secStyles.statValue}>
-            {formatIndianNumber(stats?.sudoEscalations24h ?? 0)}
-          </p>
-        </div>
-        <div className={secStyles.statCard}>
-          <p className={secStyles.statLabel}>Failed Auth Attempts</p>
-          <p
-            className={`${secStyles.statValue} ${(stats?.failedLogins24h ?? 0) > 0 ? secStyles.failedValue : ""}`}
-          >
-            {formatIndianNumber(stats?.failedLogins24h ?? 0)}
-          </p>
-        </div>
+      <div className={`${styles.statGrid} ${styles.securityStatGrid}`}>
+        <StatCard
+          label="Logins"
+          value={formatIndianNumber(stats?.totalLogins24h ?? 0)}
+          detail="Last 24 hours"
+        />
+        <StatCard
+          label="Unique source IPs"
+          value={formatIndianNumber(stats?.uniqueIps24h ?? 0)}
+          detail="Last 24 hours"
+        />
+        <StatCard
+          label="Sudo escalations"
+          value={formatIndianNumber(stats?.sudoEscalations24h ?? 0)}
+          detail="Last 24 hours"
+        />
+        <StatCard
+          label="Failed authentication"
+          value={formatIndianNumber(stats?.failedLogins24h ?? 0)}
+          detail="Last 24 hours"
+        />
       </div>
 
       {/* Filters Panel */}
@@ -276,7 +273,7 @@ export function AdminSecuritySection() {
               <input
                 className={styles.input}
                 type="text"
-                placeholder="cc, root..."
+                placeholder="root..."
                 value={params.get("sec_account") ?? ""}
                 onChange={(e) =>
                   replace({ sec_account: e.target.value || undefined })
@@ -343,63 +340,35 @@ export function AdminSecuritySection() {
       {/* Events Table */}
       <section className={`${styles.panel} ${styles.panelWide}`}>
         <div className={styles.panelHeader}>
-          <div>
-            <h3 className={styles.panelTitle}>Recent Security Events</h3>
-            <p className={styles.panelDescription}>
-              {formatIndianNumber(total)} total recorded event
-              {total === 1 ? "" : "s"}
-            </p>
-          </div>
+          <h2>Recent security events</h2>
+          <span className={styles.muted}>
+            {formatIndianNumber(total)} recorded event{total === 1 ? "" : "s"}
+          </span>
         </div>
 
-        {error && (
-          <div className={styles.panelBody}>
-            <p className={styles.errorText}>{error}</p>
-          </div>
-        )}
-
-        <div className={styles.tableWrap} aria-busy={loading}>
-          <table className={`${styles.table} ${secStyles.eventsTable}`}>
-            <thead>
-              <tr>
-                <th>Time (IST)</th>
-                <th>Type</th>
-                <th>Account</th>
-                <th>Source IP / Subnet</th>
-                <th>Authentication / Key</th>
-                <th>Summary / Command</th>
-                <th>Result</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading && events.length === 0 ? (
+        <div className={styles.panelBody}>
+          {error && (
+            <p className={styles.error} role="alert">
+              {error}
+            </p>
+          )}
+          <div className={styles.tableWrap} aria-busy={loading}>
+            <table className={`${styles.table} ${secStyles.eventsTable}`}>
+              <thead>
                 <tr>
-                  <td colSpan={7} className={styles.emptyState}>
-                    Loading security events...
-                  </td>
+                  <th>Time (IST)</th>
+                  <th>Type</th>
+                  <th>Account</th>
+                  <th>Source IP / Subnet</th>
+                  <th>Authentication / Key</th>
+                  <th>Summary / Command</th>
+                  <th>Result</th>
+                  <th>Details</th>
                 </tr>
-              ) : events.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className={styles.emptyState}>
-                    No security events found matching criteria.
-                  </td>
-                </tr>
-              ) : (
-                events.map((event) => (
-                  <tr
-                    key={event.eventId}
-                    onClick={() => setSelectedEvent(event)}
-                    onKeyDown={(keyEvent) => {
-                      if (keyEvent.key === "Enter" || keyEvent.key === " ") {
-                        keyEvent.preventDefault();
-                        setSelectedEvent(event);
-                      }
-                    }}
-                    tabIndex={0}
-                    role="button"
-                    aria-label={`View details for ${EVENT_TYPE_LABELS[event.eventType]} event at ${formatIst(event.occurredAt)}`}
-                    className={secStyles.interactiveRow}
-                  >
+              </thead>
+              <tbody>
+                {events.map((event) => (
+                  <tr key={event.eventId}>
                     <td className={secStyles.nowrapCell}>
                       {formatIst(event.occurredAt)}
                     </td>
@@ -472,76 +441,71 @@ export function AdminSecuritySection() {
                         <span>{event.result}</span>
                       </StatusBadge>
                     </td>
+                    <td>
+                      <button
+                        className={styles.secondaryButton}
+                        onClick={() => setSelectedEvent(event)}
+                      >
+                        View event
+                      </button>
+                    </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination */}
-        {pages > 1 && (
-          <div className={styles.paginationRow}>
-            <button
-              className={styles.button}
-              disabled={page <= 1}
-              onClick={() =>
-                replace(
-                  {
-                    sec_offset: String(Math.max(0, offset - DEFAULT_PAGE_SIZE)),
-                  },
-                  false,
-                )
-              }
-            >
-              Previous
-            </button>
-            <span className={styles.paginationLabel}>
-              Page {page} of {pages}
-            </span>
-            <button
-              className={styles.button}
-              disabled={page >= pages}
-              onClick={() =>
-                replace(
-                  { sec_offset: String(offset + DEFAULT_PAGE_SIZE) },
-                  false,
-                )
-              }
-            >
-              Next
-            </button>
+                ))}
+              </tbody>
+            </table>
+            {!loading && events.length === 0 && (
+              <div className={styles.empty}>
+                No security events match these filters.
+              </div>
+            )}
+            {loading && events.length === 0 && (
+              <div className={styles.empty}>Loading security events…</div>
+            )}
           </div>
-        )}
+
+          <Pagination
+            total={total}
+            noun="events"
+            page={page}
+            pages={pages}
+            onPrevious={() =>
+              replace(
+                {
+                  sec_offset: String(Math.max(0, offset - DEFAULT_PAGE_SIZE)),
+                },
+                false,
+              )
+            }
+            onNext={() =>
+              replace({ sec_offset: String(offset + DEFAULT_PAGE_SIZE) }, false)
+            }
+          />
+        </div>
       </section>
 
       {/* Event Details Modal */}
       {selectedEvent && (
         <div
-          className={secStyles.modalOverlay}
+          className={styles.drawerBackdrop}
           onClick={() => setSelectedEvent(null)}
           role="presentation"
         >
-          <div
-            className={secStyles.modalPanel}
+          <aside
+            className={styles.drawer}
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
             aria-labelledby="security-event-dialog-title"
           >
-            <div className={styles.panelHeader}>
-              <h3
-                className={styles.panelTitle}
-                id="security-event-dialog-title"
-              >
-                Event Details
-              </h3>
+            <div className={styles.drawerHeader}>
+              <h2 id="security-event-dialog-title">Event Details</h2>
               <button
                 ref={closeButtonRef}
-                className={styles.button}
+                className={styles.secondaryButton}
+                aria-label="Close security event detail"
                 onClick={() => setSelectedEvent(null)}
               >
-                Close
+                <X size={16} />
               </button>
             </div>
             <div className={secStyles.modalBody}>
@@ -608,7 +572,7 @@ export function AdminSecuritySection() {
                 <strong>Summary:</strong> {selectedEvent.summary}
               </div>
             </div>
-          </div>
+          </aside>
         </div>
       )}
     </div>
