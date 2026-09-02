@@ -33,7 +33,17 @@ DEFAULT_INGEST_URL = os.environ.get(
 HEARTBEAT_INTERVAL = int(os.environ.get("OPS_HEARTBEAT_INTERVAL", "60"))
 BATCH_SIZE = int(os.environ.get("OPS_BATCH_SIZE", "50"))
 MAX_RETRIES = 10
-AUTH_LOG_TIMEZONE = ZoneInfo(os.environ.get("OPS_AUTH_LOG_TIMEZONE", "Asia/Kolkata"))
+
+
+def get_auth_log_timezone():
+    """Return the timezone used by zone-less timestamps."""
+    configured_timezone = os.environ.get("OPS_AUTH_LOG_TIMEZONE")
+    if configured_timezone:
+        return ZoneInfo(configured_timezone)
+    return datetime.now().astimezone().tzinfo or timezone.utc
+
+
+AUTH_LOG_TIMEZONE = get_auth_log_timezone()
 
 HOSTNAME = socket.gethostname()
 
@@ -117,7 +127,9 @@ class SpoolQueue:
             );
             """
         )
-        self.conn.execute("CREATE INDEX IF NOT EXISTS idx_spool_created ON security_spool (created_at);")
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_spool_created ON security_spool (created_at);"
+        )
 
     def enqueue(self, event: dict) -> bool:
         try:
@@ -127,7 +139,13 @@ class SpoolQueue:
                 INSERT OR IGNORE INTO security_spool (event_id, event_type, occurred_at, payload, created_at)
                 VALUES (?, ?, ?, ?, ?);
                 """,
-                (event["eventId"], event["eventType"], event["occurredAt"], payload, time.time()),
+                (
+                    event["eventId"],
+                    event["eventType"],
+                    event["occurredAt"],
+                    payload,
+                    time.time(),
+                ),
             )
             return True
         except Exception as e:
@@ -210,8 +228,12 @@ class AuthLogParser:
         r"sudo:\s+(?P<user>\S+)\s+:\s+TTY=(?P<tty>\S+)\s+;\s+PWD=(?P<pwd>[^;]+)\s+;\s+USER=(?P<target_user>\S+)\s+;\s+COMMAND=(?P<command>.+)"
     )
 
-    RE_SYSLOG_DATE = re.compile(r"^(?P<month>[A-Za-z]{3})\s+(?P<day>\d+)\s+(?P<time>\d{2}:\d{2}:\d{2})")
-    RE_ISO_DATE = re.compile(r"^(?P<iso>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[+-]\d{2}:\d{2}|Z))")
+    RE_SYSLOG_DATE = re.compile(
+        r"^(?P<month>[A-Za-z]{3})\s+(?P<day>\d+)\s+(?P<time>\d{2}:\d{2}:\d{2})"
+    )
+    RE_ISO_DATE = re.compile(
+        r"^(?P<iso>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[+-]\d{2}:\d{2}|Z))"
+    )
 
     @classmethod
     def parse_timestamp(cls, line: str) -> (datetime, str):
@@ -232,7 +254,9 @@ class AuthLogParser:
                 month_str = syslog_match.group("month")
                 day = int(syslog_match.group("day"))
                 time_str = syslog_match.group("time")
-                parsed_dt = datetime.strptime(f"{now.year} {month_str} {day} {time_str}", "%Y %b %d %H:%M:%S")
+                parsed_dt = datetime.strptime(
+                    f"{now.year} {month_str} {day} {time_str}", "%Y %b %d %H:%M:%S"
+                )
                 parsed_dt = parsed_dt.replace(tzinfo=AUTH_LOG_TIMEZONE)
                 utc_dt = parsed_dt.astimezone(timezone.utc)
                 return utc_dt, utc_dt.isoformat()
@@ -260,7 +284,9 @@ class AuthLogParser:
             fingerprint = match.group("fingerprint")
             subnet = classify_subnet(ip)
             rdns = resolve_reverse_dns(ip)
-            event_id = generate_event_id(occurred_at, "login_success", f"{user}:{ip}:{port}:{fingerprint}")
+            event_id = generate_event_id(
+                occurred_at, "login_success", f"{user}:{ip}:{port}:{fingerprint}"
+            )
             return {
                 "eventId": event_id,
                 "eventType": "login_success",
@@ -286,7 +312,9 @@ class AuthLogParser:
             port = int(match.group("port"))
             subnet = classify_subnet(ip)
             rdns = resolve_reverse_dns(ip)
-            event_id = generate_event_id(occurred_at, "login_success", f"{user}:{ip}:{port}:password")
+            event_id = generate_event_id(
+                occurred_at, "login_success", f"{user}:{ip}:{port}:password"
+            )
             return {
                 "eventId": event_id,
                 "eventType": "login_success",
@@ -310,7 +338,9 @@ class AuthLogParser:
             port = int(match.group("port"))
             subnet = classify_subnet(ip)
             rdns = resolve_reverse_dns(ip)
-            event_id = generate_event_id(occurred_at, "login_success", f"{user}:{ip}:{port}:kbd")
+            event_id = generate_event_id(
+                occurred_at, "login_success", f"{user}:{ip}:{port}:kbd"
+            )
             return {
                 "eventId": event_id,
                 "eventType": "login_success",
@@ -327,13 +357,19 @@ class AuthLogParser:
             }
 
         # 4. SSH Failed Login
-        match = cls.RE_SSH_FAILED_PASSWORD.search(line) or cls.RE_SSH_FAILED_PUBKEY.search(line) or cls.RE_SSH_INVALID_USER.search(line)
+        match = (
+            cls.RE_SSH_FAILED_PASSWORD.search(line)
+            or cls.RE_SSH_FAILED_PUBKEY.search(line)
+            or cls.RE_SSH_INVALID_USER.search(line)
+        )
         if match:
             user = match.group("user")
             ip = match.group("ip")
             port = int(match.group("port"))
             subnet = classify_subnet(ip)
-            event_id = generate_event_id(occurred_at, "login_failure", f"{user}:{ip}:{port}:{line[-10:]}")
+            event_id = generate_event_id(
+                occurred_at, "login_failure", f"{user}:{ip}:{port}:{line[-10:]}"
+            )
             return {
                 "eventId": event_id,
                 "eventType": "login_failure",
@@ -356,7 +392,9 @@ class AuthLogParser:
                 return None
             user = match.group("user")
             by_user = match.group("by_user") or "root"
-            event_id = generate_event_id(occurred_at, "session_opened", f"{service}:{user}:{by_user}")
+            event_id = generate_event_id(
+                occurred_at, "session_opened", f"{service}:{user}:{by_user}"
+            )
             return {
                 "eventId": event_id,
                 "eventType": "session_opened",
@@ -375,7 +413,9 @@ class AuthLogParser:
             if service == "cron":
                 return None
             user = match.group("user")
-            event_id = generate_event_id(occurred_at, "session_closed", f"{service}:{user}")
+            event_id = generate_event_id(
+                occurred_at, "session_closed", f"{service}:{user}"
+            )
             return {
                 "eventId": event_id,
                 "eventType": "session_closed",
@@ -394,7 +434,9 @@ class AuthLogParser:
             pwd = match.group("pwd")
             target_user = match.group("target_user")
             command = match.group("command")
-            event_id = generate_event_id(occurred_at, "sudo_escalation", f"{user}:{tty}:{command}")
+            event_id = generate_event_id(
+                occurred_at, "sudo_escalation", f"{user}:{tty}:{command}"
+            )
             return {
                 "eventId": event_id,
                 "eventType": "sudo_escalation",
@@ -428,7 +470,14 @@ class StateManager:
         try:
             tmp = f"{STATE_FILE_PATH}.tmp"
             with open(tmp, "w") as f:
-                json.dump({"inode": inode, "offset": offset, "updatedAt": datetime.now(timezone.utc).isoformat()}, f)
+                json.dump(
+                    {
+                        "inode": inode,
+                        "offset": offset,
+                        "updatedAt": datetime.now(timezone.utc).isoformat(),
+                    },
+                    f,
+                )
             os.replace(tmp, STATE_FILE_PATH)
         except Exception as e:
             sys.stderr.write(f"State save failed: {e}\n")
@@ -448,13 +497,17 @@ class IngestionClient:
             "Authorization": f"Bearer {self.secret}",
             "User-Agent": f"ops-login-collector/1.0 ({HOSTNAME})",
         }
-        req = urllib.request.Request(self.endpoint, data=payload, headers=headers, method="POST")
+        req = urllib.request.Request(
+            self.endpoint, data=payload, headers=headers, method="POST"
+        )
         ctx = ssl.create_default_context()
         try:
             with urllib.request.urlopen(req, context=ctx, timeout=10.0) as resp:
                 return resp.status == 202
         except urllib.error.HTTPError as e:
-            sys.stderr.write(f"Ingestion HTTP error {e.code}: {e.read().decode('utf-8', 'replace')}\n")
+            sys.stderr.write(
+                f"Ingestion HTTP error {e.code}: {e.read().decode('utf-8', 'replace')}\n"
+            )
             return False
         except Exception as e:
             sys.stderr.write(f"Ingestion connection failed: {e}\n")
@@ -467,6 +520,7 @@ def run():
 
     print(f"Starting ops-login-collector on {HOSTNAME}")
     print(f"Auth log path: {DEFAULT_AUTH_LOG}")
+    print(f"Auth log timezone: {AUTH_LOG_TIMEZONE}")
     print(f"Spool DB: {SPOOL_DB_PATH}")
     print(f"Ingest URL: {DEFAULT_INGEST_URL}")
 
@@ -499,21 +553,25 @@ def run():
             last_heartbeat = now
             q_count = spool.count()
             occurred_at = datetime.now(timezone.utc).isoformat()
-            hb_id = generate_event_id(occurred_at, "collector_heartbeat", f"hb_{int(now)}")
-            spool.enqueue({
-                "eventId": hb_id,
-                "eventType": "collector_heartbeat",
-                "occurredAt": occurred_at,
-                "account": "system",
-                "service": "ops-login-collector",
-                "queueDepth": q_count,
-                "rawMetadata": {
-                    "hostname": HOSTNAME,
-                    "bootId": BOOT_ID,
-                },
-                "result": "success",
-                "summary": f"Collector heartbeat on {HOSTNAME} (Queue: {q_count} pending)",
-            })
+            hb_id = generate_event_id(
+                occurred_at, "collector_heartbeat", f"hb_{int(now)}"
+            )
+            spool.enqueue(
+                {
+                    "eventId": hb_id,
+                    "eventType": "collector_heartbeat",
+                    "occurredAt": occurred_at,
+                    "account": "system",
+                    "service": "ops-login-collector",
+                    "queueDepth": q_count,
+                    "rawMetadata": {
+                        "hostname": HOSTNAME,
+                        "bootId": BOOT_ID,
+                    },
+                    "result": "success",
+                    "summary": f"Collector heartbeat on {HOSTNAME} (Queue: {q_count} pending)",
+                }
+            )
 
         # 2. Read new log entries
         if os.path.isfile(DEFAULT_AUTH_LOG):
@@ -524,7 +582,9 @@ def run():
                 if current_file is None or file_inode != current_inode:
                     if current_file:
                         current_file.close()
-                    current_file = open(DEFAULT_AUTH_LOG, "r", encoding="utf-8", errors="replace")
+                    current_file = open(
+                        DEFAULT_AUTH_LOG, "r", encoding="utf-8", errors="replace"
+                    )
                     current_inode = file_inode
                     if file_inode == state.get("inode", 0):
                         current_offset = state.get("offset", 0)
