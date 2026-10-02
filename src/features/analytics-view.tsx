@@ -9,8 +9,7 @@ export function AnalyticsView() {
           <p className={styles.eyebrow}>MetricEventV1</p>
           <h1 className={styles.heading}>Analytics</h1>
           <p className={styles.subheading}>
-            Explore project metrics using dimensions discovered from incoming
-            events.
+            Explore project metrics, page views, and estimated unique visitors.
           </p>
         </div>
       </div>

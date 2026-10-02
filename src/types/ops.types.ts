@@ -189,17 +189,19 @@ export type ProjectMetricCatalog = {
 export type ProjectMetricResult = {
   range: { from: string; to: string };
   bucketDurationSeconds: number;
-  totals: { summedValue: number; eventCount: number };
+  totals: { summedValue: number; eventCount: number; uniqueVisitors: number };
   groups: Array<{
     dimensions: Record<string, MetricDimensionValue>;
     summedValue: number;
     eventCount: number;
+    uniqueVisitors: number;
   }>;
   series: Array<{
     timestamp: string;
     dimensions: Record<string, MetricDimensionValue>;
     summedValue: number;
     eventCount: number;
+    uniqueVisitors: number;
   }>;
   chartGroupLimit: 12;
   groupLimit: 100;

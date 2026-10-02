@@ -19,7 +19,7 @@ inspect sanitized error diagnostics, export log results, and monitor host and PM
 - **Safe diagnostics:** Sanitized stack and cause details,
   with fingerprint and redaction metadata visible in the log explorer.
 - **Analytics:** Dynamic project-metric explorer whose catalog is discovered
-  from incoming events.
+  from incoming events, including estimated unique visitors and page views.
 - **Infrastructure:** Host CPU, memory, disk, network, PM2, and admin-only OS
   telemetry and login/session security auditing.
 - **Services:** URL-restorable golden-signal analytics for each registered
@@ -93,6 +93,12 @@ inspect sanitized error diagnostics, export log results, and monitor host and PM
 - Host metrics contain host-level measurements and configured PM2 process data.
   Project metric names and scalar dimensions are discovered at runtime.
   Ops exposes no process-control action.
+- Metrics may carry a reserved `visitorKey` dimension containing a project-scoped
+  HMAC-SHA-256 browser digest. Storage moves it to a dedicated nullable
+  `visitor_key` column and never exposes it as a dimension or in query results.
+  `web.page_view` requires value 1 and only `page` (a canonical public path)
+  and `visitorKey` dimensions. Distinct counts are computed independently for
+  the selected range, groups, and time buckets.
 - Host health is evaluated server-side from fresh metrics with shared CPU,
   memory, and disk thresholds so Overview and Infrastructure cannot disagree.
 - Audit events preserve immutable operator IDs and snapshot the operator email
@@ -120,6 +126,7 @@ network, URL, request-path, and complete source-path context while redacting
 credentials, authorization values, cookies, API keys, sessions, tokens, and
 secrets. Metric dimensions accept bounded scalar application context but reject
 credential field names and recognizable authentication tokens.
+Public visitor metrics permit only pseudonymous browser digests and public page paths.
 
 Unknown `LogEventV1` fields are rejected without coercion. Error diagnostics are
 sanitized and size-limited before entering the stream. Do not add log-deletion

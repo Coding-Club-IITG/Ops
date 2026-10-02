@@ -99,7 +99,9 @@ describe("dynamic project metric queries", () => {
 
   it("fills empty buckets while preserving sums and event counts", () => {
     const dimensions = { studentYear: 2 };
-    const groups = [{ dimensions, summedValue: 5, eventCount: 2 }];
+    const groups = [
+      { dimensions, summedValue: 5, eventCount: 2, uniqueVisitors: 1 },
+    ];
     const buckets = buildMetricSeriesBuckets(
       [
         {
@@ -107,6 +109,7 @@ describe("dynamic project metric queries", () => {
           dimensions,
           summedValue: 5,
           eventCount: 2,
+          uniqueVisitors: 1,
         },
       ],
       groups,
@@ -130,6 +133,7 @@ describe("dynamic project metric queries", () => {
         dimensions: { cohort: index },
         summedValue: 101 - index,
         eventCount: 1,
+        uniqueVisitors: 0,
       })),
     );
     expect(result.groups).toHaveLength(100);
@@ -143,6 +147,18 @@ describe("dynamic project metric queries", () => {
         ...query,
         from: "2026-05-01T00:00:00.000Z",
         groupBy: ["studentYear", "studentYear"],
+      }),
+    ).toThrow();
+  });
+
+  it("rejects visitor-key grouping and filtering", () => {
+    expect(() =>
+      projectMetricQuerySchema.parse({ ...query, groupBy: ["visitorKey"] }),
+    ).toThrow();
+    expect(() =>
+      projectMetricQuerySchema.parse({
+        ...query,
+        filters: { visitorKey: "a".repeat(64) },
       }),
     ).toThrow();
   });

@@ -65,6 +65,9 @@
   failure code, and delivery metadata.
 - Do not add log-deletion APIs, process-control actions, or new sensitive data
   collection.
+- Public visitor metrics are an explicit exception for project-scoped browser
+  HMAC digests and canonical public page paths. Validate the reserved visitor
+  dimension, store it separately, and never return or log individual visitor keys.
 
 ## UI and Styling
 

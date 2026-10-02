@@ -66,4 +66,28 @@ describe("metric ingestion route", () => {
     expect(response.status).toBe(400);
     expect(xAdd).not.toHaveBeenCalled();
   });
+
+  it("accepts hashed visitor metrics and rejects raw identifiers before enqueueing", async () => {
+    const event = {
+      ...validEvent,
+      project: "ccw",
+      service: "ccw-web",
+      name: "web.page_view",
+      value: 1,
+      dimensions: { page: "/", visitorKey: "a".repeat(64) },
+    };
+    expect((await POST(request(event))).status).toBe(202);
+    xAdd.mockClear();
+    expect(
+      (
+        await POST(
+          request({
+            ...event,
+            dimensions: { ...event.dimensions, visitorKey: "raw-browser-id" },
+          }),
+        )
+      ).status,
+    ).toBe(400);
+    expect(xAdd).not.toHaveBeenCalled();
+  });
 });

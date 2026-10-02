@@ -4,10 +4,8 @@ import {
   parseLogEventV1,
   LogEventV1ValidationError,
 } from "@contract/log-event-v1";
-import {
-  parseMetricEventV1,
-  MetricEventV1ValidationError,
-} from "@contract/metric-event-v1";
+import { MetricEventV1ValidationError } from "@contract/metric-event-v1";
+import { parseProjectMetricEvent } from "@/lib/server/metrics/metric-event";
 import { createRedisConnection } from "@/lib/server/redis";
 import { getRuntimeConfig } from "@/lib/server/env";
 import {
@@ -220,7 +218,7 @@ async function processMetricMessage(message: StreamMessage): Promise<void> {
   let rawPayload = "";
   try {
     rawPayload = extractEventPayload(message);
-    const event = parseMetricEventV1(JSON.parse(rawPayload));
+    const event = parseProjectMetricEvent(JSON.parse(rawPayload));
     await insertMetricEvent(event);
     await finalizeMetricMessage(message.id);
   } catch (error) {

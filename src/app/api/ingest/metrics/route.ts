@@ -1,8 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
-import {
-  MetricEventV1ValidationError,
-  parseMetricEventV1,
-} from "@contract/metric-event-v1";
+import { MetricEventV1ValidationError } from "@contract/metric-event-v1";
+import { parseProjectMetricEvent } from "@/lib/server/metrics/metric-event";
 import { getRuntimeConfig } from "@/lib/server/env";
 import { getWebRedis } from "@/lib/server/redis";
 
@@ -39,7 +37,7 @@ export async function POST(request: Request): Promise<Response> {
         { error: "Request body exceeds 32 KB" },
         { status: 413 },
       );
-    const event = parseMetricEventV1(
+    const event = parseProjectMetricEvent(
       JSON.parse(new TextDecoder().decode(bytes)),
     );
     const redis = await getWebRedis();

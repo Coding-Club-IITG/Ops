@@ -5,6 +5,8 @@ import type {
 } from "@contract/metric-event-v1";
 import { z } from "zod";
 import { getPostgresPool } from "@/lib/server/postgres";
+import { VISITOR_KEY_DIMENSION } from "@/lib/metric-definitions";
+import { parseProjectMetricEvent } from "@/lib/server/metrics/metric-event";
 
 const identifier = z
   .string()
@@ -17,7 +19,8 @@ const dimensionKey = z
   .trim()
   .min(1)
   .max(64)
-  .regex(/^[A-Za-z][A-Za-z0-9_.:-]*$/);
+  .regex(/^[A-Za-z][A-Za-z0-9_.:-]*$/)
+  .refine((key) => key !== VISITOR_KEY_DIMENSION, "Visitor keys are private");
 const scalar = z.union([
   z.string().min(1).max(256),
   z.number().finite(),
@@ -72,6 +75,7 @@ export type MetricGroup = {
   dimensions: Record<string, MetricDimensionValue>;
   summedValue: number;
   eventCount: number;
+  uniqueVisitors: number;
 };
 export type MetricSeriesPoint = MetricGroup & { timestamp: string };
 export const PROJECT_METRIC_GROUP_LIMIT = 100;
@@ -156,6 +160,7 @@ export function buildMetricSeriesBuckets(
         dimensions: group.dimensions,
         summedValue: 0,
         eventCount: 0,
+        uniqueVisitors: 0,
       });
     }
   }
@@ -192,10 +197,13 @@ export function limitMetricGroups(rows: MetricGroup[]): {
 export async function insertMetricEvent(
   event: MetricEventV1,
 ): Promise<boolean> {
+  parseProjectMetricEvent(event);
+  const { [VISITOR_KEY_DIMENSION]: visitorKey, ...dimensions } =
+    event.dimensions;
   const result = await getPostgresPool().query(
     `INSERT INTO ops.metric_events
-      (event_id, schema_version, occurred_at, project, service, metric_name, value, dimensions)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      (event_id, schema_version, occurred_at, project, service, metric_name, value, dimensions, visitor_key)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
      ON CONFLICT (event_id) DO NOTHING`,
     [
       event.eventId,
@@ -205,7 +213,8 @@ export async function insertMetricEvent(
       event.service,
       event.name,
       event.value,
-      event.dimensions,
+      dimensions,
+      visitorKey ?? null,
     ],
   );
   return result.rowCount === 1;
@@ -306,8 +315,9 @@ export async function queryProjectMetrics(query: ProjectMetricQuery) {
   const totalsResult = await pool.query<{
     summedValue: string;
     eventCount: string;
+    uniqueVisitors: string;
   }>(
-    `SELECT COALESCE(SUM(value), 0) AS "summedValue", COUNT(*) AS "eventCount"
+    `SELECT COALESCE(SUM(value), 0) AS "summedValue", COUNT(*) AS "eventCount", COUNT(DISTINCT visitor_key) AS "uniqueVisitors"
      FROM ops.metric_events ${where}`,
     base.values,
   );
@@ -318,8 +328,9 @@ export async function queryProjectMetrics(query: ProjectMetricQuery) {
     dimensions: Record<string, MetricDimensionValue>;
     summedValue: string;
     eventCount: string;
+    uniqueVisitors: string;
   }>(
-    `SELECT ${combination} AS dimensions, SUM(value) AS "summedValue", COUNT(*) AS "eventCount"
+    `SELECT ${combination} AS dimensions, SUM(value) AS "summedValue", COUNT(*) AS "eventCount", COUNT(DISTINCT visitor_key) AS "uniqueVisitors"
      FROM ops.metric_events ${where}
      GROUP BY ${combination}
      ORDER BY "summedValue" DESC, "eventCount" DESC, ${combination}::text ASC
@@ -331,6 +342,7 @@ export async function queryProjectMetrics(query: ProjectMetricQuery) {
       dimensions: row.dimensions,
       summedValue: number(row.summedValue),
       eventCount: number(row.eventCount),
+      uniqueVisitors: number(row.uniqueVisitors),
     })),
   );
   const { groups, truncated } = limited;
@@ -347,16 +359,17 @@ export async function queryProjectMetrics(query: ProjectMetricQuery) {
         dimensions: Record<string, MetricDimensionValue>;
         summedValue: string;
         eventCount: string;
+        uniqueVisitors: string;
       }>(
         `WITH base AS (
-           SELECT occurred_at, value, dimensions FROM ops.metric_events ${where}
+           SELECT occurred_at, value, dimensions, visitor_key FROM ops.metric_events ${where}
          ), top_groups AS (
            SELECT ${topCombination} AS combination, SUM(value) AS total, COUNT(*) AS count
            FROM base GROUP BY ${topCombination}
            ORDER BY total DESC, count DESC, ${topCombination}::text ASC LIMIT ${PROJECT_METRIC_CHART_GROUP_LIMIT}
          )
          SELECT date_bin(${bucketParameter}::interval, occurred_at, TIMESTAMPTZ '1970-01-01') AS timestamp,
-           ${topCombination} AS dimensions, SUM(value) AS "summedValue", COUNT(*) AS "eventCount"
+           ${topCombination} AS dimensions, SUM(value) AS "summedValue", COUNT(*) AS "eventCount", COUNT(DISTINCT visitor_key) AS "uniqueVisitors"
          FROM base JOIN top_groups ON ${topCombination} = top_groups.combination
          GROUP BY timestamp, ${topCombination} ORDER BY timestamp ASC`,
         seriesValues,
@@ -368,6 +381,7 @@ export async function queryProjectMetrics(query: ProjectMetricQuery) {
     dimensions: row.dimensions,
     summedValue: number(row.summedValue),
     eventCount: number(row.eventCount),
+    uniqueVisitors: number(row.uniqueVisitors),
   }));
 
   return {
@@ -376,6 +390,7 @@ export async function queryProjectMetrics(query: ProjectMetricQuery) {
     totals: {
       summedValue: number(totalsResult.rows[0]?.summedValue ?? 0),
       eventCount: number(totalsResult.rows[0]?.eventCount ?? 0),
+      uniqueVisitors: number(totalsResult.rows[0]?.uniqueVisitors ?? 0),
     },
     groups,
     series: buildMetricSeriesBuckets(

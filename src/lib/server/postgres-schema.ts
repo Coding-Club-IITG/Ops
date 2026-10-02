@@ -81,6 +81,11 @@ export async function ensurePostgresSchema(): Promise<void> {
       dimensions JSONB NOT NULL DEFAULT '{}'::jsonb,
       CHECK (jsonb_typeof(dimensions) = 'object')
     );
+    ALTER TABLE ops.metric_events ADD COLUMN IF NOT EXISTS visitor_key TEXT
+      CHECK (visitor_key IS NULL OR visitor_key ~ '^[a-f0-9]{64}$');
+    CREATE INDEX IF NOT EXISTS metric_events_visitors_idx
+      ON ops.metric_events (project, metric_name, occurred_at, visitor_key)
+      WHERE visitor_key IS NOT NULL;
     CREATE INDEX IF NOT EXISTS metric_events_time_idx
       ON ops.metric_events (occurred_at DESC);
     CREATE INDEX IF NOT EXISTS metric_events_catalog_idx

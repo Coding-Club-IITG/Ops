@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import type { MetricDimensionValue } from "@contract/metric-event-v1";
 import { apiFetch } from "@/lib/api";
+import { PAGE_VIEW_METRIC } from "@/lib/metric-definitions";
 import { CHART_COLORS } from "@/lib/ops-constants";
 import type {
   ProjectMetricCatalog,
@@ -107,6 +108,9 @@ export function ProjectMetricsExplorer() {
   useEffect(() => {
     void runQuery();
   }, [runQuery]);
+
+  const visitorMetric =
+    metric === PAGE_VIEW_METRIC || (result?.totals.uniqueVisitors ?? 0) > 0;
 
   const selectedProject = catalog.projects.find(
     (item) => item.project === project,
@@ -269,12 +273,22 @@ export function ProjectMetricsExplorer() {
 
           <div className={`${styles.statGrid} ${styles.projectMetricStatGrid}`}>
             <StatCard
-              label="Summed value"
-              value={formatNumber(result?.totals.summedValue)}
-              detail={metric || undefined}
+              label={
+                visitorMetric ? "Estimated unique visitors" : "Summed value"
+              }
+              value={formatNumber(
+                visitorMetric
+                  ? result?.totals.uniqueVisitors
+                  : result?.totals.summedValue,
+              )}
+              detail={
+                visitorMetric
+                  ? "Distinct browsers across the entire selected range"
+                  : metric || undefined
+              }
             />
             <StatCard
-              label="Event count"
+              label={metric === PAGE_VIEW_METRIC ? "Page views" : "Event count"}
               value={formatNumber(result?.totals.eventCount)}
               detail={`${result?.bucketDurationSeconds ?? 0}s automatic buckets`}
             />
@@ -282,9 +296,17 @@ export function ProjectMetricsExplorer() {
 
           <div className={styles.grid}>
             <TimeSeriesPanel
-              title="Summed values over time"
-              meta={`Top ${Math.min(lines.length, 12)} groups`}
-              data={series.sums}
+              title={
+                visitorMetric
+                  ? "Estimated unique visitors over time"
+                  : "Summed values over time"
+              }
+              meta={
+                visitorMetric
+                  ? "Distinct browsers per time bucket"
+                  : `Top ${Math.min(lines.length, 12)} groups`
+              }
+              data={visitorMetric ? series.visitors : series.sums}
               lines={lines}
               formatValue={(value) => formatNumber(Number(value))}
               fullWidth
@@ -292,7 +314,11 @@ export function ProjectMetricsExplorer() {
               empty="No metric events match these controls."
             />
             <TimeSeriesPanel
-              title="Event counts over time"
+              title={
+                metric === PAGE_VIEW_METRIC
+                  ? "Page views over time"
+                  : "Event counts over time"
+              }
               meta={`${result?.bucketDurationSeconds ?? 0}s buckets`}
               data={series.counts}
               lines={lines}
@@ -306,6 +332,13 @@ export function ProjectMetricsExplorer() {
                 <h2>Grouped results</h2>
                 <span className={styles.muted}>Top 100 combinations</span>
               </div>
+              {visitorMetric && (
+                <p className={styles.truncationNotice}>
+                  A browser can visit multiple pages and appear in multiple time
+                  buckets. Their visitor counts do not add up to the range
+                  total.
+                </p>
+              )}
               {result?.truncated && (
                 <p className={styles.truncationNotice}>
                   More than 100 combinations matched. Only the leading 100 are
@@ -317,15 +350,29 @@ export function ProjectMetricsExplorer() {
                   <thead>
                     <tr>
                       <th>Dimensions</th>
-                      <th>Summed value</th>
-                      <th>Event count</th>
+                      <th>
+                        {visitorMetric
+                          ? "Estimated unique visitors"
+                          : "Summed value"}
+                      </th>
+                      <th>
+                        {metric === PAGE_VIEW_METRIC
+                          ? "Page views"
+                          : "Event count"}
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {result?.groups.map((group) => (
                       <tr key={groupKey(group.dimensions)}>
                         <td>{dimensionLabel(group.dimensions, groupBy)}</td>
-                        <td>{formatNumber(group.summedValue)}</td>
+                        <td>
+                          {formatNumber(
+                            visitorMetric
+                              ? group.uniqueVisitors
+                              : group.summedValue,
+                          )}
+                        </td>
                         <td>{formatNumber(group.eventCount)}</td>
                       </tr>
                     ))}
@@ -362,6 +409,7 @@ function dimensionLabel(
 
 function chartData(result: ProjectMetricResult | null) {
   const sums = new Map<string, Record<string, string | number | null>>();
+  const visitors = new Map<string, Record<string, string | number | null>>();
   const counts = new Map<string, Record<string, string | number | null>>();
   const groupIds = new Map(
     (result?.groups.slice(0, 12) ?? []).map((group, index) => [
@@ -374,12 +422,21 @@ function chartData(result: ProjectMetricResult | null) {
     if (!key) continue;
     const sum = sums.get(point.timestamp) ?? { timestamp: point.timestamp };
     const count = counts.get(point.timestamp) ?? { timestamp: point.timestamp };
+    const visitor = visitors.get(point.timestamp) ?? {
+      timestamp: point.timestamp,
+    };
+    visitor[key] = point.uniqueVisitors;
+    visitors.set(point.timestamp, visitor);
     sum[key] = point.summedValue;
     count[key] = point.eventCount;
     sums.set(point.timestamp, sum);
     counts.set(point.timestamp, count);
   }
-  return { sums: [...sums.values()], counts: [...counts.values()] };
+  return {
+    sums: [...sums.values()],
+    visitors: [...visitors.values()],
+    counts: [...counts.values()],
+  };
 }
 
 function formatNumber(value: number | undefined): string {
