@@ -148,6 +148,7 @@ The package is published only from tags matching
 The default branch is `main`. Production runs the built Next.js application as
 `ops-web` and the standalone worker as `ops-worker` through
 `ecosystem.config.js`. The web process listens on port 3005 by default.
+Fatal worker failures exit the process so PM2 can restart it.
 
 If this document and the implementation disagree, stop and ask a maintainer
 which behavior is intended before proceeding.

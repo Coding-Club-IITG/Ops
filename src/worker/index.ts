@@ -528,5 +528,5 @@ process.on("SIGINT", () => void shutdown());
 
 main().catch((error) => {
   console.error("ops-worker failed", error);
-  process.exitCode = 1;
+  process.exit(1);
 });
